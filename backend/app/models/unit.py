@@ -60,3 +60,8 @@ class Unit(Base):
         "Building",
         back_populates="units",
     )
+
+    leases = relationship(
+    "Lease",
+    back_populates="unit",
+    )

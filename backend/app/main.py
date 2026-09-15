@@ -6,6 +6,8 @@ from app.core.config import settings
 from app.api.routes.auth import router as auth_router
 from app.api.routes.buildings import router as buildings_router
 from app.api.routes.units import router as units_router
+from app.api.routes.leases import router as leases_router
+from app.api.routes.tenants import router as tenants_router
 
 
 app = FastAPI(
@@ -51,4 +53,16 @@ app.include_router(
     units_router,
     prefix="/api",
     tags=["Units"],
+)
+
+app.include_router(
+    tenants_router,
+    prefix="/api/tenants",
+    tags=["Tenants"],
+)
+
+app.include_router(
+    leases_router,
+    prefix="/api",
+    tags=["Leases"],
 )

@@ -26,6 +26,7 @@ from app.models.building import Building
 from app.models.property import Property
 from app.models.unit import Unit
 from app.models.user import User
+from app.models.lease import Lease
 
 
 config.set_main_option(
