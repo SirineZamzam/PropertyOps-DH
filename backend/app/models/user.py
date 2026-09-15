@@ -50,3 +50,8 @@ class User(Base):
         "Property",
         back_populates="owner",
     )
+
+    leases = relationship(
+    "Lease",
+    back_populates="tenant",
+    )

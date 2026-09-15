@@ -3,11 +3,16 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_db
-from app.core.config import settings
 from app.main import app
+from app.models.expense import Expense
+from app.models.rent_obligation import RentObligation
+from app.models.lease import Lease
+from app.models.building import Building
 from app.models.property import Property
+from app.models.unit import Unit
 from app.models.user import User
 
 
@@ -42,10 +47,16 @@ def db():
     finally:
         session.rollback()
 
+        # Delete children before parents because of foreign keys.
+        session.execute(delete(RentObligation))
+        session.execute(delete(Expense))
+        session.execute(delete(Lease))
+        session.execute(delete(Unit))
+        session.execute(delete(Building))
         session.execute(delete(Property))
         session.execute(delete(User))
-        session.commit()
 
+        session.commit()
         session.close()
 
 
