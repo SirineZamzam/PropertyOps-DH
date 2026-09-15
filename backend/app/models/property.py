@@ -47,3 +47,8 @@ class Property(Base):
         "User",
         back_populates="properties",
     )
+
+    buildings = relationship(
+    "Building",
+    back_populates="property",
+    )

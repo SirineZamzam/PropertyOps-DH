@@ -22,6 +22,10 @@ from app.core.config import settings
 from app.db.base import Base
 from app.models.property import Property
 from app.models.user import User
+from app.models.building import Building
+from app.models.property import Property
+from app.models.unit import Unit
+from app.models.user import User
 
 
 config.set_main_option(

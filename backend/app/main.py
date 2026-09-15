@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes.properties import router as properties_router
 from app.core.config import settings
 from app.api.routes.auth import router as auth_router
+from app.api.routes.buildings import router as buildings_router
+from app.api.routes.units import router as units_router
 
 
 app = FastAPI(
@@ -37,4 +39,16 @@ app.include_router(
     auth_router,
     prefix="/api/auth",
     tags=["Authentication"],
+)
+
+app.include_router(
+    buildings_router,
+    prefix="/api",
+    tags=["Buildings"],
+)
+
+app.include_router(
+    units_router,
+    prefix="/api",
+    tags=["Units"],
 )
