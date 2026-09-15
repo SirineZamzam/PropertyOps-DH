@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from app.models.building import Building
 from app.models.property import Property
 from app.models.unit import Unit
+from app.models.lease import Lease
 
 
 def get_owned_property(
@@ -77,3 +78,29 @@ def get_owned_unit(
         )
 
     return unit
+
+def get_owned_lease(
+    db: Session,
+    owner_id: int,
+    lease_id: int,
+) -> Lease:
+    statement = (
+        select(Lease)
+        .join(Unit)
+        .join(Building)
+        .join(Property)
+        .where(
+            Lease.id == lease_id,
+            Property.owner_id == owner_id,
+        )
+    )
+
+    lease = db.scalar(statement)
+
+    if lease is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lease not found.",
+        )
+
+    return lease

@@ -7,6 +7,8 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from app.models.expense import Expense
+from app.models.rent_obligation import RentObligation
 from app.models.lease import Lease
 from app.models.building import Building
 from app.models.property import Property
@@ -46,6 +48,8 @@ def db():
         session.rollback()
 
         # Delete children before parents because of foreign keys.
+        session.execute(delete(RentObligation))
+        session.execute(delete(Expense))
         session.execute(delete(Lease))
         session.execute(delete(Unit))
         session.execute(delete(Building))

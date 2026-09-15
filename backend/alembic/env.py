@@ -27,6 +27,8 @@ from app.models.property import Property
 from app.models.unit import Unit
 from app.models.user import User
 from app.models.lease import Lease
+from app.models.expense import Expense
+from app.models.rent_obligation import RentObligation
 
 
 config.set_main_option(

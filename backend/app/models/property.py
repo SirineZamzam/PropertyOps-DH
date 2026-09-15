@@ -52,3 +52,8 @@ class Property(Base):
     "Building",
     back_populates="property",
     )
+
+    expenses = relationship(
+    "Expense",
+    back_populates="property",
+    )

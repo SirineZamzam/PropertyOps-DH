@@ -84,3 +84,8 @@ class Lease(Base):
         "User",
         back_populates="leases",
     )
+
+    rent_obligations = relationship(
+    "RentObligation",
+    back_populates="lease",
+    )

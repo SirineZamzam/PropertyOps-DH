@@ -65,3 +65,8 @@ class Unit(Base):
     "Lease",
     back_populates="unit",
     )
+
+    expenses = relationship(
+    "Expense",
+    back_populates="unit",
+    )
