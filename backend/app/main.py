@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes.properties import router as properties_router
 from app.core.config import settings
+from app.api.routes.auth import router as auth_router
 
 
 app = FastAPI(
@@ -30,4 +31,10 @@ app.include_router(
     properties_router,
     prefix="/api/properties",
     tags=["Properties"],
+)
+
+app.include_router(
+    auth_router,
+    prefix="/api/auth",
+    tags=["Authentication"],
 )
