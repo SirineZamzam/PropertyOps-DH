@@ -5,6 +5,8 @@ class Settings(BaseSettings):
     app_name: str = "PropertyOps API"
 
     database_url: str
+    test_database_url: str
+    
     frontend_origin: str = "http://localhost:5173"
 
     jwt_secret_key: str
