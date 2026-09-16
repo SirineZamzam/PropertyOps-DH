@@ -8,7 +8,10 @@ from app.db.session import SessionLocal
 from app.models.building import Building
 from app.models.expense import Expense
 from app.models.lease import Lease, LeaseStatus
-from app.models.maintenance import Maintenance
+from app.models.maintenance import (
+    Maintenance,
+    MaintenanceStatus,
+)
 from app.models.property import Property
 from app.models.rent_obligation import (
     RentObligation,
@@ -399,6 +402,52 @@ def seed_rent_obligations(
 
     db.add_all(obligations)
 
+def seed_maintenance(
+    db: Session,
+    users: dict[str, User],
+    data: dict[str, object],
+) -> None:
+    maintenance_records = [
+        Maintenance(
+            unit_id=data["cedar_101"].id,
+            created_by_user_id=users["bob"].id,
+            category="Plumbing",
+            description=(
+                "Kitchen sink is leaking underneath the cabinet."
+            ),
+            status=MaintenanceStatus.OPEN,
+        ),
+        Maintenance(
+            unit_id=data["cedar_101"].id,
+            created_by_user_id=users["bob"].id,
+            category="Plumbing",
+            description=(
+                "Sink drain connection required another repair."
+            ),
+            status=MaintenanceStatus.RESOLVED,
+        ),
+        Maintenance(
+            unit_id=data["harbor_a1"].id,
+            created_by_user_id=users["alice"].id,
+            category="Electrical",
+            description=(
+                "Bedroom wall outlet intermittently loses power."
+            ),
+            status=MaintenanceStatus.IN_PROGRESS,
+        ),
+        Maintenance(
+            unit_id=data["pine_1a"].id,
+            created_by_user_id=users["carla"].id,
+            category="HVAC",
+            description=(
+                "Air conditioning airflow is weaker than usual."
+            ),
+            status=MaintenanceStatus.ASSIGNED,
+        ),
+    ]
+
+    db.add_all(maintenance_records)
+
 
 def seed_database() -> None:
     db = SessionLocal()
@@ -421,6 +470,13 @@ def seed_database() -> None:
             db,
             users,
             data,
+        )
+
+        print("Creating maintenance records...")
+        seed_maintenance(
+           db,
+           users,
+           data,
         )
 
         print("Creating expenses...")

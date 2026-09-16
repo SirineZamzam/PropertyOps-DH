@@ -11,6 +11,7 @@ from app.api.routes.tenants import router as tenants_router
 from app.api.routes.expenses import router as expenses_router
 from app.api.routes.rent_obligations import router as rent_obligations_router
 from app.api.routes.maintenance import (router as maintenance_router,)
+from app.api.routes.tenant_maintenance import (router as tenant_maintenance_router,)
 
 
 app = FastAPI(
@@ -86,4 +87,10 @@ app.include_router(
     maintenance_router,
     prefix="/api",
     tags=["Maintenance"],
+)
+
+app.include_router(
+    tenant_maintenance_router,
+    prefix="/api/tenant",
+    tags=["Tenant Maintenance"],
 )
