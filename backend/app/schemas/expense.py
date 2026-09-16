@@ -29,6 +29,7 @@ class ExpenseRead(BaseModel):
     id: int
     property_id: int
     unit_id: int | None
+    maintenance_id: int | None
     amount: Decimal
     category: str
     expense_date: date

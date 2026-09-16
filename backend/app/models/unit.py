@@ -70,3 +70,8 @@ class Unit(Base):
     "Expense",
     back_populates="unit",
     )
+
+    maintenance_records = relationship(
+    "Maintenance",
+    back_populates="unit",
+    )

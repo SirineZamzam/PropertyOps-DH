@@ -8,6 +8,7 @@ from app.db.session import SessionLocal
 from app.models.building import Building
 from app.models.expense import Expense
 from app.models.lease import Lease, LeaseStatus
+from app.models.maintenance import Maintenance
 from app.models.property import Property
 from app.models.rent_obligation import (
     RentObligation,
@@ -27,6 +28,7 @@ def clear_existing_data(db: Session) -> None:
 
     db.execute(delete(RentObligation))
     db.execute(delete(Expense))
+    db.execute(delete(Maintenance))
     db.execute(delete(Lease))
     db.execute(delete(Unit))
     db.execute(delete(Building))
