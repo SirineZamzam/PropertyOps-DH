@@ -67,3 +67,17 @@ def require_owner(
         )
 
     return current_user
+
+def require_tenant(
+    current_user: Annotated[
+        User,
+        Depends(get_current_user),
+    ],
+) -> User:
+    if current_user.role != UserRole.TENANT:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tenant access required.",
+        )
+
+    return current_user

@@ -55,3 +55,8 @@ class User(Base):
     "Lease",
     back_populates="tenant",
     )
+
+    maintenance_created = relationship(
+    "Maintenance",
+    back_populates="created_by",
+    )

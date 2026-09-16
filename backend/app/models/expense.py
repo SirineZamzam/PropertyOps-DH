@@ -32,6 +32,12 @@ class Expense(Base):
         index=True,
     )
 
+    maintenance_id: Mapped[int | None] = mapped_column(
+        ForeignKey("maintenance.id"),
+        nullable=True,
+        index=True,
+    )
+
     amount: Mapped[Decimal] = mapped_column(
         Numeric(12, 2),
         nullable=False,
@@ -65,5 +71,10 @@ class Expense(Base):
 
     unit = relationship(
         "Unit",
+        back_populates="expenses",
+    )
+
+    maintenance = relationship(
+        "Maintenance",
         back_populates="expenses",
     )

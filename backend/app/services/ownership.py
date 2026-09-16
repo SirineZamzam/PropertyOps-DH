@@ -6,6 +6,7 @@ from app.models.building import Building
 from app.models.property import Property
 from app.models.unit import Unit
 from app.models.lease import Lease
+from app.models.maintenance import Maintenance
 
 
 def get_owned_property(
@@ -104,3 +105,29 @@ def get_owned_lease(
         )
 
     return lease
+
+def get_owned_maintenance(
+    db: Session,
+    owner_id: int,
+    maintenance_id: int,
+) -> Maintenance:
+    statement = (
+        select(Maintenance)
+        .join(Unit)
+        .join(Building)
+        .join(Property)
+        .where(
+            Maintenance.id == maintenance_id,
+            Property.owner_id == owner_id,
+        )
+    )
+
+    maintenance = db.scalar(statement)
+
+    if maintenance is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Maintenance record not found.",
+        )
+
+    return maintenance

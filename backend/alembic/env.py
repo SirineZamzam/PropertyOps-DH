@@ -29,6 +29,7 @@ from app.models.user import User
 from app.models.lease import Lease
 from app.models.expense import Expense
 from app.models.rent_obligation import RentObligation
+from app.models.maintenance import Maintenance
 
 
 config.set_main_option(
