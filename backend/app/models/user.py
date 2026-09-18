@@ -1,8 +1,18 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, String, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Enum,
+    String,
+    func,
+)
+from sqlalchemy.orm import (
+    Mapped,
+    mapped_column,
+    relationship,
+)
 
 from app.db.base import Base
 
@@ -15,7 +25,24 @@ class UserRole(str, enum.Enum):
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+    )
+
+    first_name: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    last_name: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    phone_number: Mapped[str | None] = mapped_column(
+        String(30),
+        nullable=True,
+    )
 
     email: Mapped[str] = mapped_column(
         String(255),
@@ -30,7 +57,10 @@ class User(Base):
     )
 
     role: Mapped[UserRole] = mapped_column(
-        Enum(UserRole, name="user_role"),
+        Enum(
+            UserRole,
+            name="user_role",
+        ),
         nullable=False,
     )
 
@@ -52,11 +82,11 @@ class User(Base):
     )
 
     leases = relationship(
-    "Lease",
-    back_populates="tenant",
+        "Lease",
+        back_populates="tenant",
     )
 
     maintenance_created = relationship(
-    "Maintenance",
-    back_populates="created_by",
+        "Maintenance",
+        back_populates="created_by",
     )

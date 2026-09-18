@@ -1,27 +1,65 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  --color-phthalo: #1a361f;
+  --color-moss: #35603f;
+  --color-ash: #b7beaa;
+  --color-celestial: #519dc4;
+  --color-cyan: #87d2f8;
+
+  --color-deep-blue: #17324b;
+  --color-light-slate: #dbeaf3;
+  --color-lime-soft: #e2efad;
+  --color-slate-green: #304638;
+
+  --color-light-canvas: #f4f8fa;
+  --color-dark-canvas: #0f2115;
+  --color-dark-card: #173322;
+}
+
 :root {
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
     sans-serif;
 
-  --golden-flame: #FECB4E;
-  --fiery-orange: #F48A28;
-  --deep-ember: #933D1C;
-  --warm-brick: #74452D;
-  --charred-wood: #322119;
+  color: #17324b;
+  background: #f4f8fa;
 
-  color: var(--charred-wood);
-  background: #fffaf4;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+
+  --chart-primary: #519dc4;
+  --chart-secondary: #87d2f8;
+  --chart-grid: rgba(23, 50, 75, 0.1);
+}
+
+[data-theme="dark"] {
+  --chart-primary: #b7beaa;
+  --chart-secondary: #35603f;
+  --chart-grid: rgba(226, 239, 173, 0.12);
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  min-width: 320px;
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background: #f4f8fa;
 }
 
 button,
@@ -29,4 +67,101 @@ input,
 textarea,
 select {
   font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: #87d2f8;
+  color: #17324b;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter {
+  animation: page-enter 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.float-soft {
+  animation: float-soft 5.5s ease-in-out infinite;
+}
+
+.float-soft-delay {
+  animation: float-soft 7s ease-in-out 800ms infinite;
+}
+
+.auth-slider {
+  transition:
+    transform 650ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 650ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.auth-form {
+  transition:
+    opacity 300ms ease,
+    transform 480ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Sidebar Light Mode - Adds a subtle dark overlay (35% opacity) */
+.sidebar-bg {
+  background-image: 
+    linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.15)), 
+    url('/images/light.jpeg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Sidebar Dark Mode - Slightly darker overlay (45% opacity) for deep contrast */
+[data-theme="dark"] .sidebar-bg {
+  background-image: 
+    linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.15)), 
+    url('/images/dark.jpeg');
 }

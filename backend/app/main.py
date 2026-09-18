@@ -13,6 +13,13 @@ from app.api.routes.rent_obligations import router as rent_obligations_router
 from app.api.routes.maintenance import (router as maintenance_router,)
 from app.api.routes.tenant_maintenance import (router as tenant_maintenance_router,)
 
+from app.api.routes import (
+    account_profiles,
+    owner_views,
+    resource_management,
+    tenant_homes,
+)
+
 
 app = FastAPI(
     title=settings.app_name,
@@ -93,4 +100,28 @@ app.include_router(
     tenant_maintenance_router,
     prefix="/api/tenant",
     tags=["Tenant Maintenance"],
+)
+
+app.include_router(
+    account_profiles.router,
+    prefix="/api",
+    tags=["Profiles"],
+)
+
+app.include_router(
+    resource_management.router,
+    prefix="/api",
+    tags=["Resource Management"],
+)
+
+app.include_router(
+    owner_views.router,
+    prefix="/api",
+    tags=["Owner Views"],
+)
+
+app.include_router(
+    tenant_homes.router,
+    prefix="/api",
+    tags=["Tenant Homes"],
 )

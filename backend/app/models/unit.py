@@ -20,6 +20,14 @@ class UnitStatus(str, enum.Enum):
     UNAVAILABLE = "UNAVAILABLE"
 
 
+class UnitType(str, enum.Enum):
+    APARTMENT = "APARTMENT"
+    OFFICE = "OFFICE"
+    RETAIL = "RETAIL"
+    STORAGE = "STORAGE"
+    OTHER = "OTHER"
+
+
 class Unit(Base):
     __tablename__ = "units"
 
@@ -42,6 +50,16 @@ class Unit(Base):
     unit_number: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
+    )
+
+    unit_type: Mapped[UnitType] = mapped_column(
+    Enum(
+        UnitType,
+        name="unit_type",
+    ),
+    nullable=False,
+    default=UnitType.APARTMENT,
+    server_default="APARTMENT",
     )
 
     status: Mapped[UnitStatus] = mapped_column(
