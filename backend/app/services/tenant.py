@@ -2,20 +2,41 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.lease import Lease, LeaseStatus
+from app.models.lease import (
+    Lease,
+    LeaseStatus,
+)
+
+
+def get_active_leases_for_tenant(
+    db: Session,
+    tenant_user_id: int,
+) -> list[Lease]:
+    statement = (
+        select(Lease)
+        .where(
+            Lease.tenant_user_id
+            == tenant_user_id,
+            Lease.status
+            == LeaseStatus.ACTIVE,
+        )
+        .order_by(
+            Lease.start_date.asc()
+        )
+    )
+
+    return list(
+        db.scalars(statement).all()
+    )
 
 
 def get_active_lease_for_tenant(
     db: Session,
     tenant_user_id: int,
 ) -> Lease:
-    statement = select(Lease).where(
-        Lease.tenant_user_id == tenant_user_id,
-        Lease.status == LeaseStatus.ACTIVE,
-    )
-
-    leases = list(
-        db.scalars(statement).all()
+    leases = get_active_leases_for_tenant(
+        db,
+        tenant_user_id,
     )
 
     if not leases:
@@ -27,7 +48,10 @@ def get_active_lease_for_tenant(
     if len(leases) > 1:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Multiple active leases found for tenant.",
+            detail=(
+                "Multiple active leases found. "
+                "Select the home you want to use."
+            ),
         )
 
     return leases[0]

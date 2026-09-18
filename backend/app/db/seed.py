@@ -41,45 +41,84 @@ def clear_existing_data(db: Session) -> None:
     db.commit()
 
 
-def seed_users(db: Session) -> dict[str, User]:
+def seed_users(
+    db: Session,
+) -> dict[str, User]:
     users = {
         "owner_a": User(
+            first_name="Nadine",
+            last_name="Haddad",
+            phone_number="+961 70 111 201",
             email="owner.a@propertyops.dev",
-            password_hash=hash_password("StrongPass123!"),
+            password_hash=hash_password(
+                "StrongPass123!"
+            ),
             role=UserRole.OWNER,
         ),
+
         "owner_b": User(
+            first_name="Karim",
+            last_name="Salem",
+            phone_number="+961 71 222 302",
             email="owner.b@propertyops.dev",
-            password_hash=hash_password("StrongPass456!"),
+            password_hash=hash_password(
+                "StrongPass456!"
+            ),
             role=UserRole.OWNER,
         ),
+
         "alice": User(
+            first_name="Alice",
+            last_name="Mansour",
+            phone_number="+961 76 301 410",
             email="alice@propertyops.dev",
-            password_hash=hash_password("TenantPass123!"),
+            password_hash=hash_password(
+                "TenantPass123!"
+            ),
             role=UserRole.TENANT,
         ),
+
         "bob": User(
+            first_name="Bob",
+            last_name="Khoury",
+            phone_number="+961 81 402 511",
             email="bob@propertyops.dev",
-            password_hash=hash_password("TenantPass456!"),
+            password_hash=hash_password(
+                "TenantPass456!"
+            ),
             role=UserRole.TENANT,
         ),
+
         "carla": User(
+            first_name="Carla",
+            last_name="Nassar",
+            phone_number="+961 70 503 612",
             email="carla@propertyops.dev",
-            password_hash=hash_password("TenantPass789!"),
+            password_hash=hash_password(
+                "TenantPass789!"
+            ),
             role=UserRole.TENANT,
         ),
+
         "david": User(
+            first_name="David",
+            last_name="Farah",
+            phone_number="+961 03 604 713",
             email="david@propertyops.dev",
-            password_hash=hash_password("TenantPass321!"),
+            password_hash=hash_password(
+                "TenantPass321!"
+            ),
             role=UserRole.TENANT,
         ),
     }
 
-    db.add_all(users.values())
+    db.add_all(
+        users.values()
+    )
+
     db.flush()
 
     return users
-
 
 def seed_properties_and_units(
     db: Session,

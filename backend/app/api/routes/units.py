@@ -39,6 +39,7 @@ def create_unit(
     unit = Unit(
         building_id=building_id,
         unit_number=payload.unit_number,
+        unit_type=payload.unit_type,
         status=payload.status,
     )
 
