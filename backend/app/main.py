@@ -12,6 +12,7 @@ from app.api.routes.expenses import router as expenses_router
 from app.api.routes.rent_obligations import router as rent_obligations_router
 from app.api.routes.maintenance import (router as maintenance_router,)
 from app.api.routes.tenant_maintenance import (router as tenant_maintenance_router,)
+from app.api.routes import payments
 
 from app.api.routes import (
     account_profiles,
@@ -124,4 +125,10 @@ app.include_router(
     tenant_homes.router,
     prefix="/api",
     tags=["Tenant Homes"],
+)
+
+app.include_router(
+    payments.router,
+    prefix="/api",
+    tags=["Payments"],
 )

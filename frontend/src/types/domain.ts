@@ -363,3 +363,25 @@ export interface TenantHome {
     | string
     | null;
 }
+
+export interface TenantRentObligation {
+  id: number;
+  lease_id: number;
+
+  amount:
+    | string
+    | number;
+
+  due_date: string;
+
+  status:
+    | "PENDING"
+    | "PAID"
+    | "CANCELED";
+}
+
+
+export interface CheckoutSessionResponse {
+  payment_id: number;
+  checkout_url: string;
+}

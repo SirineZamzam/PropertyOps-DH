@@ -38,3 +38,7 @@ class PaymentRead(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,
     )
+
+class CheckoutSessionResponse(BaseModel):
+    payment_id: int
+    checkout_url: str
