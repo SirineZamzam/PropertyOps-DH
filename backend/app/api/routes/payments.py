@@ -1,16 +1,23 @@
-from datetime import date
-import stripe
+from datetime import (
+    date,
+    datetime,
+    timezone,
+)
+import logging
 from typing import Annotated
 
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Request,
     status,
 )
 from pydantic import BaseModel
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from stripe import SignatureVerificationError
 
 from app.api.dependencies import (
     require_tenant,
@@ -26,15 +33,22 @@ from app.models.rent_obligation import (
     RentObligation,
     RentObligationStatus,
 )
+from app.models.stripe_event import (
+    StripeEvent,
+)
 from app.models.user import User
 from app.schemas.payment import (
     CheckoutSessionResponse,
 )
 from app.services.stripe_service import (
+    amount_to_cents,
     create_checkout_session,
+    get_stripe_client,
 )
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 
 class TenantRentObligationRead(
@@ -268,3 +282,391 @@ def create_rent_checkout(
         payment_id=payment.id,
         checkout_url=session.url,
     )
+
+
+@router.post(
+    "/stripe/webhook",
+)
+async def stripe_webhook(
+    request: Request,
+
+    db: Annotated[
+        Session,
+        Depends(get_db),
+    ],
+):
+    if not settings.stripe_webhook_secret:
+        logger.error(
+            "Stripe webhook secret is not configured."
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Stripe webhook secret "
+                "is not configured."
+            ),
+        )
+
+    payload = await request.body()
+
+    signature = request.headers.get(
+        "stripe-signature"
+    )
+
+    if not signature:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Missing Stripe signature."
+            ),
+        )
+
+    try:
+        client = get_stripe_client()
+
+        event = client.construct_event(
+            payload,
+            signature,
+            settings.stripe_webhook_secret,
+        )
+
+    except ValueError as exc:
+        logger.warning(
+            "Invalid Stripe payload: %s",
+            exc,
+        )
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid Stripe payload."
+            ),
+        ) from exc
+
+    except SignatureVerificationError as exc:
+        logger.warning(
+            "Invalid Stripe signature: %s",
+            exc,
+        )
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid Stripe signature."
+            ),
+        ) from exc
+
+    event_id = event["id"]
+    event_type = event["type"]
+
+    logger.info(
+        "Stripe webhook verified: %s %s",
+        event_id,
+        event_type,
+    )
+
+    try:
+        # -------------------------
+        # IDEMPOTENCY CHECK
+        # -------------------------
+
+        existing_event = db.scalar(
+            select(
+                StripeEvent
+            ).where(
+                StripeEvent.stripe_event_id
+                == event_id
+            )
+        )
+
+        if existing_event:
+            logger.info(
+                "Ignoring duplicate Stripe event: %s",
+                event_id,
+            )
+
+            return {
+                "received": True,
+                "duplicate": True,
+            }
+
+        event_object = (
+            event["data"]["object"]
+            .to_dict()
+        )
+
+        # -------------------------
+        # CHECKOUT COMPLETED
+        # -------------------------
+
+        if (
+            event_type
+            == "checkout.session.completed"
+        ):
+            metadata = (
+                event_object.get(
+                    "metadata",
+                    {},
+                )
+            )
+
+            payment_id = metadata.get(
+                "payment_id"
+            )
+
+            logger.info(
+                "Checkout completed. "
+                "Payment metadata ID: %s",
+                payment_id,
+            )
+
+            if payment_id:
+                payment = db.get(
+                    Payment,
+                    int(payment_id),
+                )
+
+                if payment is None:
+                    logger.warning(
+                        "Payment %s was not found.",
+                        payment_id,
+                    )
+
+                else:
+                    if (
+                        payment
+                        .stripe_checkout_session_id
+                        != event_object.get(
+                            "id"
+                        )
+                    ):
+                        raise HTTPException(
+                            status_code=400,
+                            detail=(
+                                "Checkout session "
+                                "does not match payment."
+                            ),
+                        )
+
+                    expected_amount = (
+                        amount_to_cents(
+                            payment.amount
+                        )
+                    )
+
+                    stripe_amount = (
+                        event_object.get(
+                            "amount_total"
+                        )
+                    )
+
+                    stripe_currency = (
+                        event_object.get(
+                            "currency"
+                        )
+                    )
+
+                    logger.info(
+                        "Amount check: "
+                        "expected=%s stripe=%s "
+                        "currency=%s",
+                        expected_amount,
+                        stripe_amount,
+                        stripe_currency,
+                    )
+
+                    if (
+                        stripe_amount
+                        != expected_amount
+                    ):
+                        raise HTTPException(
+                            status_code=400,
+                            detail=(
+                                "Stripe amount does "
+                                "not match payment."
+                            ),
+                        )
+
+                    if (
+                        stripe_currency
+                        != payment.currency.lower()
+                    ):
+                        raise HTTPException(
+                            status_code=400,
+                            detail=(
+                                "Stripe currency does "
+                                "not match payment."
+                            ),
+                        )
+
+                    if (
+                        event_object.get(
+                            "payment_status"
+                        )
+                        == "paid"
+                    ):
+                        logger.info(
+                            "Marking payment %s PAID.",
+                            payment.id,
+                        )
+
+                        payment.status = (
+                            PaymentStatus.PAID
+                        )
+
+                        payment.stripe_payment_intent_id = (
+                            event_object.get(
+                                "payment_intent"
+                            )
+                        )
+
+                        payment.paid_at = (
+                            datetime.now(
+                                timezone.utc
+                            )
+                        )
+
+                        obligation = db.get(
+                            RentObligation,
+                            payment.rent_obligation_id,
+                        )
+
+                        if obligation is None:
+                            raise RuntimeError(
+                                "Rent obligation "
+                                f"{payment.rent_obligation_id} "
+                                "was not found."
+                            )
+
+                        obligation.status = (
+                            RentObligationStatus.PAID
+                        )
+
+        # -------------------------
+        # CHECKOUT EXPIRED
+        # -------------------------
+
+        elif (
+            event_type
+            == "checkout.session.expired"
+        ):
+            metadata = event_object.get(
+                "metadata",
+                {},
+            )
+
+            payment_id = metadata.get(
+                "payment_id"
+            )
+
+            if payment_id:
+                payment = db.get(
+                    Payment,
+                    int(payment_id),
+                )
+
+                if (
+                    payment is not None
+                    and payment.status
+                    != PaymentStatus.PAID
+                ):
+                    payment.status = (
+                        PaymentStatus.EXPIRED
+                    )
+
+        # -------------------------
+        # PAYMENT FAILED
+        # -------------------------
+
+        elif (
+            event_type
+            == "payment_intent.payment_failed"
+        ):
+            metadata = event_object.get(
+                "metadata",
+                {},
+            )
+
+            payment_id = metadata.get(
+                "payment_id"
+            )
+
+            if payment_id:
+                payment = db.get(
+                    Payment,
+                    int(payment_id),
+                )
+
+                if (
+                    payment is not None
+                    and payment.status
+                    != PaymentStatus.PAID
+                ):
+                    payment.status = (
+                        PaymentStatus.FAILED
+                    )
+
+                    payment.stripe_payment_intent_id = (
+                        event_object.get(
+                            "id"
+                        )
+                    )
+
+        # -------------------------
+        # SAVE PROCESSED EVENT
+        # -------------------------
+
+        db.add(
+            StripeEvent(
+                stripe_event_id=event_id,
+                event_type=event_type,
+            )
+        )
+
+        db.commit()
+
+        logger.info(
+            "Stripe event processed successfully: %s",
+            event_id,
+        )
+
+    except IntegrityError:
+        db.rollback()
+
+        logger.info(
+            "Duplicate Stripe event caught "
+            "by database: %s",
+            event_id,
+        )
+
+        return {
+            "received": True,
+            "duplicate": True,
+        }
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception as exc:
+        db.rollback()
+
+        logger.exception(
+            "Stripe webhook processing crashed. "
+            "event_id=%s event_type=%s",
+            event_id,
+            event_type,
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Stripe webhook processing failed."
+            ),
+        ) from exc
+
+    return {
+        "received": True,
+        "duplicate": False,
+    }

@@ -14,6 +14,11 @@ import {
 } from "react";
 
 import {
+  useLocation,
+  useNavigate,
+} from "react-router";
+
+import {
   useAuth,
 } from "../contexts/AuthContext";
 
@@ -969,6 +974,9 @@ function TenantRent() {
     selectedHome,
   } = useTenantHome();
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const [
     obligations,
     setObligations,
@@ -1014,6 +1022,47 @@ function TenantRent() {
   }, [
     selectedHome?.lease_id,
   ]);
+
+
+  useEffect(() => {
+    const params =
+      new URLSearchParams(
+        location.search,
+      );
+
+    const checkout =
+      params.get("checkout");
+
+    if (checkout === "success") {
+      successAlert(
+        "Payment completed",
+        "Stripe confirmed your checkout. Your rent payment status has been updated securely.",
+      );
+
+      load();
+
+      navigate(
+        "/app/rent",
+        {
+          replace: true,
+        },
+      );
+    }
+
+    if (checkout === "cancelled") {
+      errorAlert(
+        "Payment cancelled",
+        "No payment was completed. You can try again whenever you're ready.",
+      );
+
+      navigate(
+        "/app/rent",
+        {
+          replace: true,
+        },
+      );
+    }
+  }, []);
 
 
   async function pay(
