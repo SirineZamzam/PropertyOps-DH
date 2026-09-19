@@ -20,16 +20,17 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 from app.core.config import settings
 from app.db.base import Base
-from app.models.property import Property
 from app.models.user import User
+from app.models.property import Property
 from app.models.building import Building
-from app.models.property import Property
 from app.models.unit import Unit
-from app.models.user import User
 from app.models.lease import Lease
+from app.models.maintenance import Maintenance
 from app.models.expense import Expense
 from app.models.rent_obligation import RentObligation
-from app.models.maintenance import Maintenance
+
+from app.models.payment import Payment
+from app.models.stripe_event import StripeEvent
 
 
 config.set_main_option(

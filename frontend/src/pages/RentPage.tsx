@@ -14,6 +14,11 @@ import {
 } from "react";
 
 import {
+  useLocation,
+  useNavigate,
+} from "react-router";
+
+import {
   useAuth,
 } from "../contexts/AuthContext";
 
@@ -60,6 +65,8 @@ import type {
   OwnerRentItem,
   OwnerRentPage,
   PropertyNode,
+  TenantRentObligation,
+  CheckoutSessionResponse,
 } from "../types/domain";
 
 
@@ -967,40 +974,146 @@ function TenantRent() {
     selectedHome,
   } = useTenantHome();
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const [
+    obligations,
+    setObligations,
+  ] =
+    useState<
+      TenantRentObligation[]
+    >([]);
+
+  const [
+    payingId,
+    setPayingId,
+  ] =
+    useState<number | null>(
+      null,
+    );
+
+
+  async function load() {
+    if (!selectedHome) {
+      setObligations([]);
+      return;
+    }
+
+    try {
+      const data =
+        await apiRequest<
+          TenantRentObligation[]
+        >(
+          `/tenant/homes/${selectedHome.lease_id}/rent-obligations`,
+        );
+
+      setObligations(
+        data,
+      );
+    } catch {
+      setObligations([]);
+    }
+  }
+
+
+  useEffect(() => {
+    load();
+  }, [
+    selectedHome?.lease_id,
+  ]);
+
+
+  useEffect(() => {
+    const params =
+      new URLSearchParams(
+        location.search,
+      );
+
+    const checkout =
+      params.get("checkout");
+
+    if (checkout === "success") {
+      successAlert(
+        "Payment completed",
+        "Stripe confirmed your checkout. Your rent payment status has been updated securely.",
+      );
+
+      load();
+
+      navigate(
+        "/app/rent",
+        {
+          replace: true,
+        },
+      );
+    }
+
+    if (checkout === "cancelled") {
+      errorAlert(
+        "Payment cancelled",
+        "No payment was completed. You can try again whenever you're ready.",
+      );
+
+      navigate(
+        "/app/rent",
+        {
+          replace: true,
+        },
+      );
+    }
+  }, []);
+
+
+  async function pay(
+    obligationId: number,
+  ) {
+    setPayingId(
+      obligationId,
+    );
+
+    try {
+      const response =
+        await apiRequest<
+          CheckoutSessionResponse
+        >(
+          `/tenant/rent-obligations/${obligationId}/checkout`,
+          {
+            method: "POST",
+          },
+        );
+
+      window.location.assign(
+        response.checkout_url,
+      );
+    } catch (error) {
+      setPayingId(null);
+
+      await errorAlert(
+        "Unable to start payment",
+        error instanceof Error
+          ? error.message
+          : "Please try again.",
+      );
+    }
+  }
+
+
   if (!homes.length) {
     return (
       <div className="mx-auto max-w-5xl page-enter">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-celestial dark:text-ash">
-          My rent
+        <p className="text-deep-blue/45 dark:text-white/40">
+          No active lease found.
         </p>
-
-        <h1 className="mt-2 text-4xl font-semibold tracking-[-0.05em] text-deep-blue dark:text-white">
-          Rent & payments
-        </h1>
-
-        <div className="mt-8 rounded-[2rem] border border-dashed border-celestial/15 bg-white p-8 text-center dark:border-ash/15 dark:bg-dark-card">
-          <CreditCard
-            size={30}
-            className="mx-auto text-celestial dark:text-ash"
-          />
-
-          <p className="mt-4 font-semibold text-deep-blue dark:text-white">
-            No active lease
-          </p>
-
-          <p className="mt-2 text-sm text-deep-blue/40 dark:text-white/35">
-            Rent information will
-            appear when you have an
-            active home.
-          </p>
-        </div>
       </div>
     );
   }
 
+
   if (!selectedHome) {
     return null;
   }
+
 
   return (
     <div className="mx-auto max-w-5xl page-enter">
@@ -1014,56 +1127,104 @@ function TenantRent() {
         Rent & payments
       </h1>
 
-      <div className="mt-8 grid gap-5 md:grid-cols-2">
-        <section className="rounded-[2rem] bg-cyan p-7 text-deep-blue dark:bg-moss dark:text-lime-soft">
-          <CreditCard
-            size={28}
-          />
+      <div className="mt-8 rounded-[2rem] bg-cyan p-7 text-deep-blue dark:bg-moss dark:text-lime-soft">
+        <CreditCard
+          size={28}
+        />
 
-          <p className="mt-8 text-xs font-bold uppercase tracking-[0.15em] opacity-50">
-            Monthly lease rent
-          </p>
+        <p className="mt-8 text-xs font-bold uppercase tracking-[0.15em] opacity-50">
+          Monthly lease rent
+        </p>
 
-          <p className="mt-2 text-4xl font-semibold">
-            {
-              selectedHome.rent_amount
-            }
-          </p>
+        <p className="mt-2 text-4xl font-semibold">
+          {
+            selectedHome.rent_amount
+          }
+        </p>
 
-          <p className="mt-5 text-sm opacity-60">
-            {
-              selectedHome.property_name
-            }{" "}
-            ·{" "}
-            {
-              selectedHome.building_name
-            }{" "}
-            · Unit{" "}
-            {
-              selectedHome.unit_number
-            }
-          </p>
-        </section>
-
-        <section className="rounded-[2rem] bg-ash p-7 text-slate-green">
-          <p className="text-xs font-bold uppercase tracking-[0.15em] opacity-50">
-            Payments
-          </p>
-
-          <h2 className="mt-3 text-2xl font-semibold">
-            Secure checkout is
-            next.
-          </h2>
-
-          <p className="mt-4 text-sm leading-6 opacity-60">
-            Your rent obligations,
-            Stripe checkout and
-            payment history will
-            connect here during the
-            payment stories.
-          </p>
-        </section>
+        <p className="mt-4 text-sm opacity-60">
+          {
+            selectedHome.property_name
+          }
+          {" · "}
+          {
+            selectedHome.building_name
+          }
+          {" · Unit "}
+          {
+            selectedHome.unit_number
+          }
+        </p>
       </div>
+
+      <section className="mt-7">
+        <h2 className="text-xl font-semibold text-deep-blue dark:text-white">
+          Rent obligations
+        </h2>
+
+        <div className="mt-4 space-y-3">
+          {obligations.map(
+            (item) => (
+              <article
+                key={item.id}
+                className="flex flex-col gap-4 rounded-[1.6rem] border border-celestial/10 bg-white p-5 sm:flex-row sm:items-center sm:justify-between dark:border-ash/10 dark:bg-dark-card"
+              >
+                <div>
+                  <div className="flex items-center gap-3">
+                    <p className="text-2xl font-semibold text-deep-blue dark:text-white">
+                      {
+                        item.amount
+                      }
+                    </p>
+
+                    <span className="rounded-full bg-cyan px-3 py-1 text-[9px] font-bold uppercase tracking-[0.12em] text-deep-blue dark:bg-moss dark:text-lime-soft">
+                      {
+                        item.status
+                      }
+                    </span>
+                  </div>
+
+                  <p className="mt-2 text-sm text-deep-blue/45 dark:text-white/40">
+                    Due{" "}
+                    {
+                      item.due_date
+                    }
+                  </p>
+                </div>
+
+                {item.status ===
+                  "PENDING" && (
+                  <button
+                    type="button"
+                    disabled={
+                      payingId ===
+                      item.id
+                    }
+                    onClick={() =>
+                      pay(
+                        item.id,
+                      )
+                    }
+                    className="rounded-2xl bg-celestial px-5 py-3 text-sm font-semibold text-white transition hover:bg-cyan hover:text-deep-blue disabled:opacity-50 dark:bg-moss dark:text-lime-soft"
+                  >
+                    {payingId ===
+                    item.id
+                      ? "Opening Stripe..."
+                      : "Pay securely"}
+                  </button>
+                )}
+              </article>
+            ),
+          )}
+
+          {!obligations.length && (
+            <div className="rounded-[1.6rem] border border-dashed border-celestial/15 bg-white p-8 text-center text-sm text-deep-blue/40 dark:border-ash/15 dark:bg-dark-card dark:text-white/35">
+              No rent obligations
+              for this home yet.
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
