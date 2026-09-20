@@ -3,61 +3,97 @@ from datetime import (
     datetime,
     timezone,
 )
+
 import logging
+
 from typing import Annotated
 
 from fastapi import (
     APIRouter,
     Depends,
     HTTPException,
+    Query,
     Request,
     status,
 )
+
 from pydantic import BaseModel
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from stripe import SignatureVerificationError
+
+from stripe import (
+    SignatureVerificationError,
+)
 
 from app.api.dependencies import (
+    require_owner,
     require_tenant,
 )
+
 from app.core.config import settings
 from app.db.session import get_db
+
+from app.models.building import Building
 from app.models.lease import Lease
 from app.models.payment import (
     Payment,
     PaymentStatus,
 )
+
+from app.models.property import Property
+
 from app.models.rent_obligation import (
     RentObligation,
     RentObligationStatus,
 )
+
 from app.models.stripe_event import (
     StripeEvent,
 )
+
+from app.models.unit import Unit
 from app.models.user import User
+
 from app.schemas.payment import (
     CheckoutSessionResponse,
+    OwnerPaymentHistoryRead,
+    TenantPaymentHistoryRead,
 )
+
 from app.services.stripe_service import (
     amount_to_cents,
     create_checkout_session,
     get_stripe_client,
 )
 
+
 router = APIRouter()
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(
+    __name__
+)
 
 
-class TenantRentObligationRead(
-    BaseModel
-):
+class TenantRentObligationRead(BaseModel):
     id: int
     lease_id: int
     amount: float
     due_date: date
+    status: RentObligationStatus
+
+    model_config = {
+        "from_attributes": True
+    }
+
+
+class OwnerRentObligationRead(BaseModel):
+    id: int
+    lease_id: int
+    amount: float
+    due_date: date
+
     status: RentObligationStatus
 
     model_config = {
@@ -101,6 +137,112 @@ def get_tenant_obligation(
     return obligation
 
 
+def tenant_payment_response(
+    payment: Payment,
+    obligation: RentObligation,
+) -> TenantPaymentHistoryRead:
+    return TenantPaymentHistoryRead(
+        id=payment.id,
+
+        rent_obligation_id=(
+            payment.rent_obligation_id
+        ),
+
+        amount=payment.amount,
+
+        currency=payment.currency,
+
+        status=payment.status,
+
+        due_date=(
+            obligation.due_date
+        ),
+
+        created_at=(
+            payment.created_at
+        ),
+
+        paid_at=(
+            payment.paid_at
+        ),
+    )
+
+
+def owner_payment_response(
+    payment: Payment,
+    obligation: RentObligation,
+    property_record: Property,
+    building: Building,
+    unit: Unit,
+    tenant: User,
+) -> OwnerPaymentHistoryRead:
+    return OwnerPaymentHistoryRead(
+        id=payment.id,
+
+        rent_obligation_id=(
+            payment.rent_obligation_id
+        ),
+
+        amount=payment.amount,
+
+        currency=payment.currency,
+
+        status=payment.status,
+
+        due_date=(
+            obligation.due_date
+        ),
+
+        created_at=(
+            payment.created_at
+        ),
+
+        paid_at=(
+            payment.paid_at
+        ),
+
+        tenant_user_id=(
+            tenant.id
+        ),
+
+        tenant_email=(
+            tenant.email
+        ),
+
+        tenant_first_name=(
+            tenant.first_name
+        ),
+
+        tenant_last_name=(
+            tenant.last_name
+        ),
+
+        property_id=(
+            property_record.id
+        ),
+
+        property_name=(
+            property_record.name
+        ),
+
+        building_id=(
+            building.id
+        ),
+
+        building_name=(
+            building.name
+        ),
+
+        unit_id=(
+            unit.id
+        ),
+
+        unit_number=(
+            unit.unit_number
+        ),
+    )
+
+
 @router.get(
     "/tenant/homes/{lease_id}/"
     "rent-obligations",
@@ -123,8 +265,11 @@ def list_tenant_rent_obligations(
     ],
 ):
     lease = db.scalar(
-        select(Lease).where(
-            Lease.id == lease_id,
+        select(
+            Lease
+        ).where(
+            Lease.id
+            == lease_id,
 
             Lease.tenant_user_id
             == tenant.id,
@@ -149,12 +294,321 @@ def list_tenant_rent_obligations(
         )
         .order_by(
             RentObligation
-            .due_date.desc()
+            .due_date
+            .desc()
         )
     ).all()
 
-    return list(obligations)
+    return list(
+        obligations
+    )
 
+
+# --------------------------------------------------
+# TENANT PAYMENT HISTORY
+# --------------------------------------------------
+
+@router.get(
+    "/tenant/homes/{lease_id}/payments",
+
+    response_model=list[
+        TenantPaymentHistoryRead
+    ],
+)
+def list_tenant_payment_history(
+    lease_id: int,
+
+    db: Annotated[
+        Session,
+        Depends(get_db),
+    ],
+
+    tenant: Annotated[
+        User,
+        Depends(require_tenant),
+    ],
+):
+    lease = db.scalar(
+        select(
+            Lease
+        ).where(
+            Lease.id
+            == lease_id,
+
+            Lease.tenant_user_id
+            == tenant.id,
+        )
+    )
+
+    if lease is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Lease not found."
+            ),
+        )
+
+    rows = db.execute(
+        select(
+            Payment,
+            RentObligation,
+        )
+        .join(
+            RentObligation,
+            Payment.rent_obligation_id
+            == RentObligation.id,
+        )
+        .where(
+            RentObligation.lease_id
+            == lease.id
+        )
+        .order_by(
+            Payment.created_at.desc()
+        )
+    ).all()
+
+    return [
+        tenant_payment_response(
+            payment,
+            obligation,
+        )
+        for (
+            payment,
+            obligation,
+        ) in rows
+    ]
+
+
+@router.get(
+    "/tenant/payments/{payment_id}",
+
+    response_model=(
+        TenantPaymentHistoryRead
+    ),
+)
+def get_tenant_payment(
+    payment_id: int,
+
+    db: Annotated[
+        Session,
+        Depends(get_db),
+    ],
+
+    tenant: Annotated[
+        User,
+        Depends(require_tenant),
+    ],
+):
+    row = db.execute(
+        select(
+            Payment,
+            RentObligation,
+        )
+        .join(
+            RentObligation,
+            Payment.rent_obligation_id
+            == RentObligation.id,
+        )
+        .join(
+            Lease,
+            RentObligation.lease_id
+            == Lease.id,
+        )
+        .where(
+            Payment.id
+            == payment_id,
+
+            Lease.tenant_user_id
+            == tenant.id,
+
+            Payment.tenant_user_id
+            == tenant.id,
+        )
+    ).one_or_none()
+
+    if row is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Payment not found."
+            ),
+        )
+
+    payment, obligation = row
+
+    return tenant_payment_response(
+        payment,
+        obligation,
+    )
+
+
+# --------------------------------------------------
+# OWNER PAYMENT VISIBILITY
+# --------------------------------------------------
+
+def owner_payment_statement(
+    owner_id: int,
+):
+    return (
+        select(
+            Payment,
+            RentObligation,
+            Property,
+            Building,
+            Unit,
+            User,
+        )
+        .join(
+            RentObligation,
+            Payment.rent_obligation_id
+            == RentObligation.id,
+        )
+        .join(
+            Lease,
+            RentObligation.lease_id
+            == Lease.id,
+        )
+        .join(
+            Unit,
+            Lease.unit_id
+            == Unit.id,
+        )
+        .join(
+            Building,
+            Unit.building_id
+            == Building.id,
+        )
+        .join(
+            Property,
+            Building.property_id
+            == Property.id,
+        )
+        .join(
+            User,
+            Payment.tenant_user_id
+            == User.id,
+        )
+        .where(
+            Property.owner_id
+            == owner_id
+        )
+    )
+
+
+@router.get(
+    "/owner/payments",
+
+    response_model=list[
+        OwnerPaymentHistoryRead
+    ],
+)
+def list_owner_payments(
+    db: Annotated[
+        Session,
+        Depends(get_db),
+    ],
+
+    owner: Annotated[
+        User,
+        Depends(require_owner),
+    ],
+
+    limit: int = Query(
+        20,
+        ge=1,
+        le=100,
+    ),
+):
+    rows = db.execute(
+        owner_payment_statement(
+            owner.id
+        )
+        .order_by(
+            Payment.created_at.desc()
+        )
+        .limit(limit)
+    ).all()
+
+    return [
+        owner_payment_response(
+            payment,
+            obligation,
+            property_record,
+            building,
+            unit,
+            tenant,
+        )
+        for (
+            payment,
+            obligation,
+            property_record,
+            building,
+            unit,
+            tenant,
+        ) in rows
+    ]
+
+
+@router.get(
+    "/owner/payments/{payment_id}",
+
+    response_model=(
+        OwnerPaymentHistoryRead
+    ),
+)
+def get_owner_payment(
+    payment_id: int,
+
+    db: Annotated[
+        Session,
+        Depends(get_db),
+    ],
+
+    owner: Annotated[
+        User,
+        Depends(require_owner),
+    ],
+):
+    row = db.execute(
+        owner_payment_statement(
+            owner.id
+        )
+        .where(
+            Payment.id
+            == payment_id
+        )
+    ).one_or_none()
+
+    if row is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                "Payment not found."
+            ),
+        )
+
+    (
+        payment,
+        obligation,
+        property_record,
+        building,
+        unit,
+        tenant,
+    ) = row
+
+    return owner_payment_response(
+        payment,
+        obligation,
+        property_record,
+        building,
+        unit,
+        tenant,
+    )
+
+
+# --------------------------------------------------
+# STRIPE CHECKOUT
+# --------------------------------------------------
 
 @router.post(
     "/tenant/rent-obligations/"
@@ -284,6 +738,10 @@ def create_rent_checkout(
     )
 
 
+# --------------------------------------------------
+# STRIPE WEBHOOK
+# --------------------------------------------------
+
 @router.post(
     "/stripe/webhook",
 )
@@ -297,7 +755,8 @@ async def stripe_webhook(
 ):
     if not settings.stripe_webhook_secret:
         logger.error(
-            "Stripe webhook secret is not configured."
+            "Stripe webhook secret "
+            "is not configured."
         )
 
         raise HTTPException(
@@ -367,10 +826,6 @@ async def stripe_webhook(
     )
 
     try:
-        # -------------------------
-        # IDEMPOTENCY CHECK
-        # -------------------------
-
         existing_event = db.scalar(
             select(
                 StripeEvent
@@ -382,7 +837,8 @@ async def stripe_webhook(
 
         if existing_event:
             logger.info(
-                "Ignoring duplicate Stripe event: %s",
+                "Ignoring duplicate "
+                "Stripe event: %s",
                 event_id,
             )
 
@@ -395,10 +851,6 @@ async def stripe_webhook(
             event["data"]["object"]
             .to_dict()
         )
-
-        # -------------------------
-        # CHECKOUT COMPLETED
-        # -------------------------
 
         if (
             event_type
@@ -429,7 +881,8 @@ async def stripe_webhook(
 
                 if payment is None:
                     logger.warning(
-                        "Payment %s was not found.",
+                        "Payment %s "
+                        "was not found.",
                         payment_id,
                     )
 
@@ -445,7 +898,8 @@ async def stripe_webhook(
                             status_code=400,
                             detail=(
                                 "Checkout session "
-                                "does not match payment."
+                                "does not match "
+                                "payment."
                             ),
                         )
 
@@ -467,15 +921,6 @@ async def stripe_webhook(
                         )
                     )
 
-                    logger.info(
-                        "Amount check: "
-                        "expected=%s stripe=%s "
-                        "currency=%s",
-                        expected_amount,
-                        stripe_amount,
-                        stripe_currency,
-                    )
-
                     if (
                         stripe_amount
                         != expected_amount
@@ -495,8 +940,9 @@ async def stripe_webhook(
                         raise HTTPException(
                             status_code=400,
                             detail=(
-                                "Stripe currency does "
-                                "not match payment."
+                                "Stripe currency "
+                                "does not match "
+                                "payment."
                             ),
                         )
 
@@ -506,11 +952,6 @@ async def stripe_webhook(
                         )
                         == "paid"
                     ):
-                        logger.info(
-                            "Marking payment %s PAID.",
-                            payment.id,
-                        )
-
                         payment.status = (
                             PaymentStatus.PAID
                         )
@@ -543,10 +984,6 @@ async def stripe_webhook(
                             RentObligationStatus.PAID
                         )
 
-        # -------------------------
-        # CHECKOUT EXPIRED
-        # -------------------------
-
         elif (
             event_type
             == "checkout.session.expired"
@@ -574,10 +1011,6 @@ async def stripe_webhook(
                     payment.status = (
                         PaymentStatus.EXPIRED
                     )
-
-        # -------------------------
-        # PAYMENT FAILED
-        # -------------------------
 
         elif (
             event_type
@@ -613,10 +1046,6 @@ async def stripe_webhook(
                         )
                     )
 
-        # -------------------------
-        # SAVE PROCESSED EVENT
-        # -------------------------
-
         db.add(
             StripeEvent(
                 stripe_event_id=event_id,
@@ -627,7 +1056,8 @@ async def stripe_webhook(
         db.commit()
 
         logger.info(
-            "Stripe event processed successfully: %s",
+            "Stripe event processed "
+            "successfully: %s",
             event_id,
         )
 
@@ -635,8 +1065,8 @@ async def stripe_webhook(
         db.rollback()
 
         logger.info(
-            "Duplicate Stripe event caught "
-            "by database: %s",
+            "Duplicate Stripe event "
+            "caught by database: %s",
             event_id,
         )
 
@@ -653,8 +1083,9 @@ async def stripe_webhook(
         db.rollback()
 
         logger.exception(
-            "Stripe webhook processing crashed. "
-            "event_id=%s event_type=%s",
+            "Stripe webhook processing "
+            "crashed. event_id=%s "
+            "event_type=%s",
             event_id,
             event_type,
         )
@@ -662,7 +1093,8 @@ async def stripe_webhook(
         raise HTTPException(
             status_code=500,
             detail=(
-                "Stripe webhook processing failed."
+                "Stripe webhook "
+                "processing failed."
             ),
         ) from exc
 
