@@ -40,12 +40,22 @@ from app.models.ai_insight import (
 )
 
 from app.models.ai_insight_evidence import (
+    AIEvidenceType,
     AIInsightEvidence,
+)
+
+from app.models.expense import (
+    Expense,
+)
+
+from app.models.maintenance import (
+    Maintenance,
 )
 
 from app.models.user import User
 
 from app.schemas.ai import (
+    AIInsightEvidenceRead,
     AIInsightRead,
     AIJobDetail,
     AIJobRead,
@@ -419,6 +429,170 @@ def get_ai_job(
             .all()
         )
 
+        maintenance_ids = [
+            item.evidence_id
+            for item in evidence
+            if (
+                item.evidence_type
+                == AIEvidenceType.MAINTENANCE
+            )
+        ]
+
+        expense_ids = [
+            item.evidence_id
+            for item in evidence
+            if (
+                item.evidence_type
+                == AIEvidenceType.EXPENSE
+            )
+        ]
+
+        maintenance_records = {}
+        if maintenance_ids:
+            maintenance_records = {
+                record.id: record
+                for record in db.scalars(
+                    select(
+                        Maintenance
+                    ).where(
+                        Maintenance.id.in_(
+                            maintenance_ids
+                        )
+                    )
+                ).all()
+            }
+
+        expense_records = {}
+        if expense_ids:
+            expense_records = {
+                record.id: record
+                for record in db.scalars(
+                    select(
+                        Expense
+                    ).where(
+                        Expense.id.in_(
+                            expense_ids
+                        )
+                    )
+                ).all()
+            }
+
+        evidence_response = []
+        for item in evidence:
+            if (
+                item.evidence_type
+                == AIEvidenceType.MAINTENANCE
+            ):
+                record = (
+                    maintenance_records
+                    .get(
+                        item.evidence_id
+                    )
+                )
+
+                evidence_response.append(
+                    AIInsightEvidenceRead(
+                        id=item.id,
+
+                        evidence_type=(
+                            item.evidence_type
+                        ),
+
+                        evidence_id=(
+                            item.evidence_id
+                        ),
+
+                        evidence_date=(
+                            record.created_at
+                            if record
+                            else None
+                        ),
+
+                        category=(
+                            record.category
+                            if record
+                            else None
+                        ),
+
+                        description=(
+                            record.description
+                            if record
+                            else None
+                        ),
+
+                        status=(
+                            record.status.value
+                            if record
+                            else None
+                        ),
+
+                        amount=None,
+
+                        unit_id=(
+                            record.unit_id
+                            if record
+                            else None
+                        ),
+                    )
+                )
+
+            elif (
+                item.evidence_type
+                == AIEvidenceType.EXPENSE
+            ):
+                record = (
+                    expense_records
+                    .get(
+                        item.evidence_id
+                    )
+                )
+
+                evidence_response.append(
+                    AIInsightEvidenceRead(
+                        id=item.id,
+
+                        evidence_type=(
+                            item.evidence_type
+                        ),
+
+                        evidence_id=(
+                            item.evidence_id
+                        ),
+
+                        evidence_date=(
+                            record.expense_date
+                            if record
+                            else None
+                        ),
+
+                        category=(
+                            record.category
+                            if record
+                            else None
+                        ),
+
+                        description=(
+                            record.description
+                            if record
+                            else None
+                        ),
+
+                        status=None,
+
+                        amount=(
+                            str(record.amount)
+                            if record
+                            else None
+                        ),
+
+                        unit_id=(
+                            record.unit_id
+                            if record
+                            else None
+                        ),
+                    )
+                )
+
         insight_response = (
             AIInsightRead(
                 id=insight.id,
@@ -438,8 +612,8 @@ def get_ai_job(
                 created_at=(
                     insight.created_at
                 ),
-                evidence=list(
-                    evidence
+                evidence=(
+                    evidence_response
                 ),
             )
         )

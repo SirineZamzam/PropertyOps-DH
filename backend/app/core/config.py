@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-3.5-flash-lite"
     ai_max_records_per_type: int = 30
     ai_requests_per_hour: int = 5
+    ai_lookback_days: int = 365
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",

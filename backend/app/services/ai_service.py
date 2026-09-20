@@ -73,6 +73,38 @@ Rules:
 11. Keep the result concise and useful
     to a property owner.
 
+12. Maintenance status matters.
+
+    RESOLVED means that specific
+    incident was closed at that time.
+    Do not describe a resolved record
+    by itself as a currently active
+    problem.
+
+13. A similar issue occurring again
+    after an earlier RESOLVED record
+    is evidence of recurrence.
+
+14. An expense proves that money was
+    recorded for work or a cost.
+    It does NOT prove that the
+    underlying issue was permanently
+    fixed.
+
+15. Give more importance to recent
+    events and recurrence inside the
+    provided analysis window.
+
+16. If an issue was resolved and
+    there is no later recurrence,
+    avoid recommending unnecessary
+    replacement or intervention.
+    Monitoring may be sufficient.
+
+17. Do not call an issue currently
+    active unless the supplied records
+    support that conclusion.
+
 PROPERTYOPS OPERATIONAL DATA:
 
 {serialized_context}

@@ -1,3 +1,9 @@
+from datetime import (
+    datetime,
+    timedelta,
+    timezone,
+)
+
 from sqlalchemy import (
     or_,
     select,
@@ -27,15 +33,31 @@ def _maintenance_payload(
 ) -> dict:
     return {
         "id": record.id,
-        "unit_id": record.unit_id,
-        "unit_number": unit_number,
-        "building_name": building_name,
-        "category": record.category,
-        "description": record.description,
-        "status": record.status.value,
+
+        "unit_id":
+            record.unit_id,
+
+        "unit_number":
+            unit_number,
+
+        "building_name":
+            building_name,
+
+        "category":
+            record.category,
+
+        "description":
+            record.description,
+
+        "status":
+            record.status.value,
+
         "created_at": (
-            record.created_at.isoformat()
+            record
+            .created_at
+            .isoformat()
         ),
+
         "resolved_at": (
             record.resolved_at.isoformat()
             if record.resolved_at
@@ -47,28 +69,75 @@ def _maintenance_payload(
 def _expense_payload(
     record: Expense,
     *,
-    unit_number: str | None,
-    building_name: str | None,
+    unit_number:
+        str | None,
+
+    building_name:
+        str | None,
 ) -> dict:
     return {
-        "id": record.id,
-        "property_id": record.property_id,
-        "unit_id": record.unit_id,
-        "unit_number": unit_number,
-        "building_name": building_name,
-        "maintenance_id": (
-            record.maintenance_id
-        ),
-        "amount": str(record.amount),
-        "category": record.category,
-        "description": (
-            record.description
-        ),
+        "id":
+            record.id,
+
+        "property_id":
+            record.property_id,
+
+        "unit_id":
+            record.unit_id,
+
+        "unit_number":
+            unit_number,
+
+        "building_name":
+            building_name,
+
+        "maintenance_id":
+            record.maintenance_id,
+
+        "amount":
+            str(record.amount),
+
+        "category":
+            record.category,
+
+        "description":
+            record.description,
+
         "expense_date": (
-            record.expense_date.isoformat()
+            record
+            .expense_date
+            .isoformat()
         ),
     }
 
+
+def _analysis_window() -> tuple[
+    datetime,
+    datetime,
+]:
+    window_end = datetime.now(
+        timezone.utc
+    )
+
+    window_start = (
+        window_end
+        - timedelta(
+            days=(
+                settings
+                .ai_lookback_days
+            )
+        )
+    )
+
+    return (
+        window_start,
+        window_end,
+    )
+
+
+# --------------------------------------------------
+# PROPERTY CONTEXT
+# --------------------------------------------------
 
 def collect_property_ai_context(
     db: Session,
@@ -89,6 +158,15 @@ def collect_property_ai_context(
         .ai_max_records_per_type
     )
 
+    (
+        window_start,
+        window_end,
+    ) = _analysis_window()
+
+    # ----------------------------------------------
+    # Maintenance
+    # ----------------------------------------------
+
     maintenance_rows = (
         db.execute(
             select(
@@ -108,7 +186,10 @@ def collect_property_ai_context(
             )
             .where(
                 Building.property_id
-                == property_record.id
+                == property_record.id,
+
+                Maintenance.created_at
+                >= window_start,
             )
             .order_by(
                 Maintenance
@@ -119,6 +200,10 @@ def collect_property_ai_context(
         )
         .all()
     )
+
+    # ----------------------------------------------
+    # Expenses
+    # ----------------------------------------------
 
     expense_rows = (
         db.execute(
@@ -139,7 +224,10 @@ def collect_property_ai_context(
             )
             .where(
                 Expense.property_id
-                == property_record.id
+                == property_record.id,
+
+                Expense.expense_date
+                >= window_start.date(),
             )
             .order_by(
                 Expense
@@ -151,11 +239,17 @@ def collect_property_ai_context(
         .all()
     )
 
+    # ----------------------------------------------
+    # Payloads
+    # ----------------------------------------------
+
     maintenance = [
         _maintenance_payload(
             record,
             unit_number=unit_number,
-            building_name=building_name,
+            building_name=(
+                building_name
+            ),
         )
         for (
             record,
@@ -169,7 +263,9 @@ def collect_property_ai_context(
         _expense_payload(
             record,
             unit_number=unit_number,
-            building_name=building_name,
+            building_name=(
+                building_name
+            ),
         )
         for (
             record,
@@ -181,20 +277,42 @@ def collect_property_ai_context(
 
     return {
         "scope": {
-            "type": "PROPERTY",
+            "type":
+                "PROPERTY",
+
             "property_id":
                 property_record.id,
+
             "property_name":
                 property_record.name,
+
             "city":
                 property_record.city,
+
             "country":
                 property_record.country,
+
+            "analysis_window_days":
+                settings.ai_lookback_days,
+
+            "analysis_window_start":
+                window_start.isoformat(),
+
+            "analysis_window_end":
+                window_end.isoformat(),
         },
-        "maintenance": maintenance,
-        "expenses": expenses,
+
+        "maintenance":
+            maintenance,
+
+        "expenses":
+            expenses,
     }
 
+
+# --------------------------------------------------
+# UNIT CONTEXT
+# --------------------------------------------------
 
 def collect_unit_ai_context(
     db: Session,
@@ -209,6 +327,7 @@ def collect_unit_ai_context(
     )
 
     building = unit.building
+
     property_record = (
         building.property
     )
@@ -218,6 +337,15 @@ def collect_unit_ai_context(
         .ai_max_records_per_type
     )
 
+    (
+        window_start,
+        window_end,
+    ) = _analysis_window()
+
+    # ----------------------------------------------
+    # Maintenance
+    # ----------------------------------------------
+
     maintenance_records = (
         db.scalars(
             select(
@@ -225,7 +353,10 @@ def collect_unit_ai_context(
             )
             .where(
                 Maintenance.unit_id
-                == unit.id
+                == unit.id,
+
+                Maintenance.created_at
+                >= window_start,
             )
             .order_by(
                 Maintenance
@@ -237,6 +368,9 @@ def collect_unit_ai_context(
         .all()
     )
 
+    # Used so expenses linked indirectly
+    # through maintenance can still be
+    # associated with this unit.
     maintenance_id_query = (
         select(
             Maintenance.id
@@ -247,6 +381,10 @@ def collect_unit_ai_context(
         )
     )
 
+    # ----------------------------------------------
+    # Expenses
+    # ----------------------------------------------
+
     expense_records = (
         db.scalars(
             select(
@@ -255,11 +393,17 @@ def collect_unit_ai_context(
             .where(
                 Expense.property_id
                 == property_record.id,
+
+                Expense.expense_date
+                >= window_start.date(),
+
                 or_(
                     Expense.unit_id
                     == unit.id,
 
-                    Expense.maintenance_id.in_(
+                    Expense
+                    .maintenance_id
+                    .in_(
                         maintenance_id_query
                     ),
                 ),
@@ -274,12 +418,18 @@ def collect_unit_ai_context(
         .all()
     )
 
+    # ----------------------------------------------
+    # Payloads
+    # ----------------------------------------------
+
     maintenance = [
         _maintenance_payload(
             record,
+
             unit_number=(
                 unit.unit_number
             ),
+
             building_name=(
                 building.name
             ),
@@ -291,9 +441,11 @@ def collect_unit_ai_context(
     expenses = [
         _expense_payload(
             record,
+
             unit_number=(
                 unit.unit_number
             ),
+
             building_name=(
                 building.name
             ),
@@ -304,22 +456,43 @@ def collect_unit_ai_context(
 
     return {
         "scope": {
-            "type": "UNIT",
+            "type":
+                "UNIT",
+
             "property_id":
                 property_record.id,
+
             "property_name":
                 property_record.name,
+
             "building_id":
                 building.id,
+
             "building_name":
                 building.name,
+
             "unit_id":
                 unit.id,
+
             "unit_number":
                 unit.unit_number,
+
             "unit_type":
                 unit.unit_type.value,
+
+            "analysis_window_days":
+                settings.ai_lookback_days,
+
+            "analysis_window_start":
+                window_start.isoformat(),
+
+            "analysis_window_end":
+                window_end.isoformat(),
         },
-        "maintenance": maintenance,
-        "expenses": expenses,
+
+        "maintenance":
+            maintenance,
+
+        "expenses":
+            expenses,
     }
