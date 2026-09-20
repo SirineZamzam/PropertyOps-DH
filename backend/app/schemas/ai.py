@@ -1,11 +1,17 @@
 import enum
+from datetime import datetime
 
 from pydantic import (
     BaseModel,
+    ConfigDict,
     Field,
     field_validator,
 )
 
+from app.models.ai_analysis_job import (
+    AIAnalysisScope,
+    AIJobStatus,
+)
 from app.models.ai_insight_evidence import (
     AIEvidenceType,
 )
@@ -165,3 +171,60 @@ class AIAnalysisResult(BaseModel):
             )
 
         return value
+
+
+class AIInsightEvidenceRead(
+    BaseModel
+):
+    id: int
+    evidence_type: AIEvidenceType
+    evidence_id: int
+
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+
+class AIInsightRead(
+    BaseModel
+):
+    id: int
+    job_id: int
+    finding: str
+    qualification: AIQualification
+    recommendation: str | None
+    explanation: str
+    created_at: datetime
+
+    evidence: list[
+        AIInsightEvidenceRead
+    ] = []
+
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+
+class AIJobRead(
+    BaseModel
+):
+    id: int
+    owner_user_id: int
+    scope_type: AIAnalysisScope
+    property_id: int | None
+    unit_id: int | None
+    status: AIJobStatus
+    error_message: str | None
+    created_at: datetime
+    started_at: datetime | None
+    completed_at: datetime | None
+
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
+
+class AIJobDetail(
+    AIJobRead
+):
+    insight: AIInsightRead | None = None
