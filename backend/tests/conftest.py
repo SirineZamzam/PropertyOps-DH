@@ -16,6 +16,16 @@ from app.models.property import Property
 from app.models.unit import Unit
 from app.models.user import User
 
+from app.models.ai_analysis_job import (
+    AIAnalysisJob,
+)
+from app.models.ai_insight import (
+    AIInsight,
+)
+from app.models.ai_insight_evidence import (
+    AIInsightEvidence,
+)
+
 
 test_engine = create_engine(
     settings.test_database_url,
@@ -49,6 +59,9 @@ def db():
         session.rollback()
 
         # Delete children before parents because of foreign keys.
+        session.execute(delete(AIInsightEvidence))
+        session.execute(delete(AIInsight))
+        session.execute(delete(AIAnalysisJob))
         session.execute(delete(RentObligation))
         session.execute(delete(Expense))
         session.execute(delete(Maintenance))
