@@ -32,6 +32,16 @@ from app.models.rent_obligation import RentObligation
 from app.models.payment import Payment
 from app.models.stripe_event import StripeEvent
 
+from app.models.ai_analysis_job import (
+    AIAnalysisJob,
+)
+from app.models.ai_insight import (
+    AIInsight,
+)
+from app.models.ai_insight_evidence import (
+    AIInsightEvidence,
+)
+
 
 config.set_main_option(
     "sqlalchemy.url",

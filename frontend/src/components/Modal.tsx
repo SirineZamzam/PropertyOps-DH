@@ -10,15 +10,24 @@ export function Modal({
   eyebrow,
   onClose,
   children,
+  wide = false,
 }: {
   title: string;
   eyebrow?: string;
   onClose: () => void;
   children: ReactNode;
+  wide?: boolean;
 }) {
   return (
     <div className="fixed inset-0 z-[100] grid place-items-center bg-black/35 p-4 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-[2rem] bg-white p-6 shadow-2xl dark:bg-dark-card">
+      <div
+        className={[
+          "max-h-[90vh] w-full overflow-y-auto rounded-[2rem] bg-white p-6 shadow-2xl dark:bg-dark-card",
+          wide
+            ? "max-w-5xl"
+            : "max-w-lg",
+        ].join(" ")}
+      >
         <div className="flex items-start justify-between gap-4">
           <div>
             {eyebrow && (
