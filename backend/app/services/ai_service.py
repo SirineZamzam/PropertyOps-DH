@@ -122,7 +122,17 @@ def analyze_operational_context(
     client = genai.Client(
         api_key=(
             settings.gemini_api_key
-        )
+        ),
+
+        http_options=(
+        types.HttpOptions(
+            timeout=(
+                settings
+                .ai_timeout_seconds
+                * 1000
+             )
+         )
+       ),
     )
 
     response = (

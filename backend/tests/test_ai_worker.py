@@ -344,3 +344,91 @@ def test_ai_worker_failure_marks_job_failed(
         updated_job.error_message
         is not None
     )
+
+def test_ai_worker_timeout_marks_job_failed(
+    db,
+    monkeypatch,
+):
+    owner = create_owner(db)
+
+    property_record = (
+        create_property(
+            db,
+            owner,
+        )
+    )
+
+    job = create_pending_job(
+        db,
+        owner,
+        property_record,
+    )
+
+    job_id = job.id
+
+    context = {
+        "scope": {
+            "type": "PROPERTY",
+
+            "property_id":
+                property_record.id,
+        },
+
+        "maintenance": [
+            {
+                "id": 10,
+            },
+        ],
+
+        "expenses": [],
+    }
+
+    def timeout_ai(
+        context,
+    ):
+        raise TimeoutError(
+            "AI provider timed out"
+        )
+
+    monkeypatch.setattr(
+        ai_worker,
+        "SessionLocal",
+        lambda: db,
+    )
+
+    monkeypatch.setattr(
+        ai_worker,
+        "collect_property_ai_context",
+        lambda *args, **kwargs:
+            context,
+    )
+
+    monkeypatch.setattr(
+        ai_worker,
+        "analyze_operational_context",
+        timeout_ai,
+    )
+
+    ai_worker.process_ai_job(
+        job_id
+    )
+
+    updated_job = db.get(
+        AIAnalysisJob,
+        job_id,
+    )
+
+    assert (
+        updated_job.status
+        == AIJobStatus.FAILED
+    )
+
+    assert (
+        updated_job.error_message
+        is not None
+    )
+
+    assert (
+        updated_job.completed_at
+        is not None
+    )

@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     ai_max_records_per_type: int = 30
     ai_requests_per_hour: int = 5
     ai_lookback_days: int = 365
+    ai_timeout_seconds: int = 30
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
