@@ -1,0 +1,114 @@
+name: PropertyOps CI
+
+on:
+  push:
+  pull_request:
+    branches:
+      - development
+      - main
+
+jobs:
+  backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: propertyops_test_db
+
+        ports:
+          - 5432:5432
+
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/propertyops_test_db
+      TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/propertyops_test_db
+
+      JWT_SECRET_KEY: ci-test-secret-key-propertyops
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+
+      FRONTEND_ORIGIN: http://localhost:5173
+      FRONTEND_URL: http://localhost:5173
+
+      STRIPE_SECRET_KEY: ""
+      STRIPE_WEBHOOK_SECRET: ""
+      STRIPE_CURRENCY: usd
+
+      GEMINI_API_KEY: ""
+      GEMINI_MODEL: gemini-3.5-flash-lite
+
+      AI_MAX_RECORDS_PER_TYPE: 30
+      AI_REQUESTS_PER_HOUR: 5
+      AI_LOOKBACK_DAYS: 365
+      AI_TIMEOUT_SECONDS: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Check backend syntax
+        working-directory: backend
+        run: |
+          python -m compileall app
+
+      - name: Check database migrations
+        working-directory: backend
+        run: |
+          alembic upgrade head
+
+      - name: Run backend tests
+        working-directory: backend
+        run: |
+          python -m pytest tests -q
+
+
+  frontend:
+    name: Frontend Lint and Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run frontend lint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
