@@ -6,6 +6,16 @@ PropertyOps is a production-style full-stack application for managing rental pro
 
 The system is built as a modular monolith with strict server-side authorization, verified Stripe webhooks, structured AI output, PostgreSQL persistence, automated testing, CI, and production deployment.
 
+## Live Application
+
+**Frontend:** https://propertyops-sz.vercel.app
+
+**Backend health:** https://propertyops-api-1du2.onrender.com/health
+
+**API documentation:** https://propertyops-api-1du2.onrender.com/docs
+
+> Stripe is integrated in test mode. The live application is intended for demonstration and evaluation.
+
 ## Highlights
 
 - Role-based workflows for **OWNER** and **TENANT**
@@ -29,6 +39,7 @@ The system is built as a modular monolith with strict server-side authorization,
 ## Technology Stack
 
 ### Frontend
+
 - React
 - TypeScript
 - Vite
@@ -40,6 +51,7 @@ The system is built as a modular monolith with strict server-side authorization,
 - Oxlint
 
 ### Backend
+
 - Python 3.13
 - FastAPI
 - SQLAlchemy 2
@@ -52,12 +64,13 @@ The system is built as a modular monolith with strict server-side authorization,
 - Google Gen AI SDK
 
 ### Production Services
-- **Vercel** — frontend
-- **Render** — FastAPI backend
-- **Neon** — PostgreSQL
-- **Stripe** — Checkout and signed webhooks
+
+- **Vercel** — frontend hosting
+- **Render** — FastAPI backend hosting
+- **Neon** — managed PostgreSQL
+- **Stripe** — Checkout and signed webhook processing
 - **Gemini** — operational intelligence
-- **GitHub Actions** — CI
+- **GitHub Actions** — continuous integration
 
 ## System Overview
 
@@ -89,7 +102,7 @@ FastAPI API on Render
                   Validation + persistence
 ```
 
-Authorization and business rules are enforced in the backend. The frontend is responsible for presentation and interaction, but ownership, tenancy, workflow transitions, payment verification, and AI evidence validation are server-side concerns.
+Authorization and business rules are enforced in the backend. The frontend is responsible for presentation and interaction, while ownership, tenancy, workflow transitions, payment verification, and AI evidence validation remain server-side concerns.
 
 For deeper design details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -135,7 +148,7 @@ Owners can:
 - Record expenses
 - Create rent obligations
 - Review payment activity
-- Request property/unit AI analysis
+- Request property- or unit-level AI analysis
 - Inspect AI findings and supporting evidence
 
 Owner data is isolated by portfolio.
@@ -211,7 +224,7 @@ The AI feature is integrated into the operational workflow rather than implement
 PropertyOps sends bounded maintenance and expense context for an authorized property or unit. Gemini returns structured output containing:
 
 - Finding
-- Qualification: LOW / MEDIUM / HIGH
+- Qualification: `LOW`, `MEDIUM`, or `HIGH`
 - Optional recommendation
 - Explanation
 - Evidence references
@@ -284,7 +297,7 @@ PropertyOps-DH/
 
 ```powershell
 git clone https://github.com/SirineZamzam/PropertyOps-DH.git
-cd PropertyOps-DHackend
+cd PropertyOps-DH\backend
 
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
@@ -292,7 +305,7 @@ pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-Configure `backend/.env` with local database credentials, JWT secret, Stripe test credentials, and Gemini API key.
+Configure `backend/.env` with local database credentials, a JWT secret, Stripe test credentials, and a Gemini API key.
 
 Run migrations:
 
@@ -327,7 +340,7 @@ http://127.0.0.1:8000/health
 ### Frontend
 
 ```powershell
-cd ..rontend
+cd ..\frontend
 npm ci
 ```
 
@@ -337,7 +350,7 @@ Create `frontend/.env`:
 VITE_API_URL=http://127.0.0.1:8000/api
 ```
 
-Start:
+Start the frontend:
 
 ```powershell
 npm run dev
@@ -396,11 +409,13 @@ Current regression suite:
 
 ### AI Evaluation
 
+Run the live-model evaluation suite from `backend/`:
+
 ```powershell
 python -m evals.run_ai_evals
 ```
 
-Live Gemini calls are intentionally excluded from CI because CI should not depend on external model availability, secrets, cost, or nondeterministic provider behavior.
+Live Gemini calls are intentionally excluded from CI because CI should not depend on external model availability, secrets, token cost, or nondeterministic provider behavior.
 
 ### Frontend
 
@@ -430,26 +445,26 @@ Frontend CI:
 3. Runs Oxlint
 4. Builds the Vite production bundle
 
-Workflow: `.github/workflows/ci.yml`
+Workflow: [.github/workflows/ci.yml](.github/workflows/ci.yml)
 
 ## Production
 
-```text
-Frontend   Vercel
-Backend    Render
-Database   Neon PostgreSQL
-Payments   Stripe test-mode Checkout + signed webhook
-AI         Gemini
-CI         GitHub Actions
-```
+| Component | Service |
+| --- | --- |
+| Frontend | Vercel |
+| Backend | Render |
+| Database | Neon PostgreSQL |
+| Payments | Stripe test-mode Checkout + signed webhook |
+| AI | Gemini |
+| CI | GitHub Actions |
 
-Backend health endpoint:
+### Production URLs
 
-```text
-https://propertyops-api-1du2.onrender.com/health
-```
+- **Application:** https://propertyops-sz.vercel.app
+- **Backend health:** https://propertyops-api-1du2.onrender.com/health
+- **Swagger:** https://propertyops-api-1du2.onrender.com/docs
 
-Full deployment guidance is documented in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Full deployment and operational guidance is documented in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Security and Reliability
 
@@ -463,7 +478,7 @@ PropertyOps includes:
 - Server-side workflow validation
 - Signed Stripe webhook verification
 - Stripe event idempotency
-- Payment amount/currency/session validation
+- Payment amount, currency, and session validation
 - Secret management through environment variables
 - AI schema validation
 - AI evidence validation
@@ -472,7 +487,7 @@ PropertyOps includes:
 - Provider timeout handling
 - Database migrations
 - Automated regression testing
-- CI checks
+- CI checks before release
 
 ## Architectural Tradeoffs
 
