@@ -9,7 +9,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 class Settings(BaseSettings):
     app_name: str = "PropertyOps API"
 
-    database_url: str
+    database_url: str = ""
     test_database_url: str
 
     frontend_origin: str = "http://localhost:5173"
