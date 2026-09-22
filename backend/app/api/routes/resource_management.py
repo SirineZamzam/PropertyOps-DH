@@ -56,6 +56,10 @@ from app.schemas.workflow import (
     UnitView,
 )
 
+from app.services.lease_rent_schedule import (
+    reconcile_active_lease_schedule,
+    validate_lease_term,
+)
 from app.services.ownership import (
     get_owned_building,
     get_owned_lease,
@@ -629,37 +633,57 @@ def update_lease(
         exclude_unset=True,
     )
 
-    new_start = changes.get(
-        "start_date",
-        lease.start_date,
-    )
+    if (
+        "start_date"
+        in changes
+        and changes[
+            "start_date"
+        ]
+        != lease.start_date
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "Lease start date cannot be changed "
+                "after creation because it anchors "
+                "the monthly rent schedule."
+            ),
+        )
 
     new_end = changes.get(
         "end_date",
         lease.end_date,
     )
 
-    if (
-        new_end is not None
-        and new_end < new_start
-    ):
+    try:
+        validate_lease_term(
+            lease.start_date,
+            new_end,
+        )
+    except ValueError as exc:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                "Lease end date cannot be "
-                "before its start date."
+            status_code=(
+                status.HTTP_422_UNPROCESSABLE_ENTITY
             ),
+            detail=str(exc),
+        ) from exc
+
+    if "end_date" in changes:
+        lease.end_date = (
+            new_end
         )
 
-    for (
-        field,
-        value,
-    ) in changes.items():
-        setattr(
-            lease,
-            field,
-            value,
+    if "rent_amount" in changes:
+        lease.rent_amount = (
+            changes[
+                "rent_amount"
+            ]
         )
+
+    reconcile_active_lease_schedule(
+        db,
+        lease,
+    )
 
     db.commit()
     db.refresh(lease)
@@ -970,12 +994,12 @@ def update_rent_obligation(
     if (
         lease.end_date is not None
         and requested_due_date
-        > lease.end_date
+        >= lease.end_date
     ):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=(
-                "Due date cannot be after "
+                "Due date must be before "
                 "the lease end date."
             ),
         )

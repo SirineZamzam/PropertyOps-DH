@@ -968,22 +968,6 @@ async def stripe_webhook(
                         )
                         == "paid"
                     ):
-                        payment.status = (
-                            PaymentStatus.PAID
-                        )
-
-                        payment.stripe_payment_intent_id = (
-                            event_object.get(
-                                "payment_intent"
-                            )
-                        )
-
-                        payment.paid_at = (
-                            datetime.now(
-                                timezone.utc
-                            )
-                        )
-
                         obligation = db.get(
                             RentObligation,
                             payment.rent_obligation_id,
@@ -996,9 +980,38 @@ async def stripe_webhook(
                                 "was not found."
                             )
 
-                        obligation.status = (
-                            RentObligationStatus.PAID
-                        )
+                        if (
+                            obligation.status
+                            == RentObligationStatus.CANCELED
+                            or payment.status
+                            == PaymentStatus.EXPIRED
+                        ):
+                            logger.warning(
+                                "Ignoring paid checkout for canceled "
+                                "obligation %s / expired payment %s.",
+                                obligation.id,
+                                payment.id,
+                            )
+                        else:
+                            payment.status = (
+                                PaymentStatus.PAID
+                            )
+
+                            payment.stripe_payment_intent_id = (
+                                event_object.get(
+                                    "payment_intent"
+                                )
+                            )
+
+                            payment.paid_at = (
+                                datetime.now(
+                                    timezone.utc
+                                )
+                            )
+
+                            obligation.status = (
+                                RentObligationStatus.PAID
+                            )
 
         elif (
             event_type

@@ -1013,13 +1013,15 @@ function CreateLeaseForm({
         "Enter a valid rent amount.";
     }
 
-    if (
-      endDate &&
+    if (!endDate) {
+      next.end_date =
+        "End date is required so monthly rent can be generated automatically.";
+    } else if (
       startDate &&
-      endDate < startDate
+      endDate <= startDate
     ) {
       next.end_date =
-        "End date cannot be before the start date.";
+        "End date must be after the start date.";
     }
 
     setErrors(next);
@@ -1053,8 +1055,7 @@ function CreateLeaseForm({
                 startDate,
 
               end_date:
-                endDate ||
-                null,
+                endDate,
 
               rent_amount:
                 Number(rent),
@@ -1062,9 +1063,9 @@ function CreateLeaseForm({
         },
       );
 
-      await successAlert(
+      successAlert(
         "Lease created",
-        `${tenant.first_name ?? ""} ${tenant.last_name ?? ""} is now assigned to the selected unit.`,
+        "The lease is active and its monthly rent obligations were generated automatically.",
       );
 
       onSaved();
@@ -1181,10 +1182,11 @@ function CreateLeaseForm({
         </FormField>
 
         <FormField
-          label="Lease end date (optional)"
+          label="Lease end date"
           error={
             errors.end_date
           }
+          hint="Use a full calendar-month term, for example Sep 22 → Oct 22. Month-end dates are handled automatically."
         >
           <input
             type="date"
@@ -1222,6 +1224,10 @@ function CreateLeaseForm({
           />
         </FormField>
 
+        <div className="md:col-span-2 rounded-2xl bg-cyan/35 p-4 text-xs text-deep-blue dark:bg-moss/60 dark:text-lime-soft">
+            One PENDING rent obligation will be created for each calendar month of the lease.
+        </div>
+
         <button className="md:col-span-2 rounded-2xl bg-celestial py-3.5 text-sm font-semibold text-white dark:bg-moss dark:text-lime-soft">
           Create lease
         </button>
@@ -1241,13 +1247,6 @@ function EditLeaseForm({
   onSaved: () => void;
 }) {
   const [
-    startDate,
-    setStartDate,
-  ] = useState(
-    lease.start_date,
-  );
-
-  const [
     endDate,
     setEndDate,
   ] = useState(
@@ -1261,11 +1260,50 @@ function EditLeaseForm({
       ),
     );
 
+  const [
+    errors,
+    setErrors,
+  ] =
+    useState<FieldErrors>(
+      {},
+    );
+
 
   async function submit(
     event: FormEvent,
   ) {
     event.preventDefault();
+
+    const next:
+      FieldErrors = {};
+
+    if (!endDate) {
+      next.end_date =
+        "End date is required for the automatic monthly schedule.";
+    } else if (
+      endDate <=
+      lease.start_date
+    ) {
+      next.end_date =
+        "End date must be after the lease start date.";
+    }
+
+    if (
+      !rent ||
+      Number(rent) <= 0
+    ) {
+      next.rent_amount =
+        "Enter a valid monthly rent.";
+    }
+
+    setErrors(next);
+
+    if (
+      Object.keys(next)
+        .length
+    ) {
+      return;
+    }
 
     try {
       await apiRequest(
@@ -1275,12 +1313,8 @@ function EditLeaseForm({
 
           body:
             JSON.stringify({
-              start_date:
-                startDate,
-
               end_date:
-                endDate ||
-                null,
+                endDate,
 
               rent_amount:
                 Number(rent),
@@ -1288,8 +1322,9 @@ function EditLeaseForm({
         },
       );
 
-      await successAlert(
+      successAlert(
         "Lease updated",
+        "Future monthly rent obligations were synchronized with the lease.",
       );
 
       onSaved();
@@ -1314,30 +1349,42 @@ function EditLeaseForm({
         onSubmit={submit}
         className="grid gap-4 sm:grid-cols-2"
       >
-        <FormField label="Start date">
+        <FormField
+          label="Lease start date"
+          hint="The start date is fixed after creation because it anchors the monthly billing schedule."
+        >
           <input
             type="date"
-            value={startDate}
-            onChange={(e) =>
-              setStartDate(
-                e.target.value,
-              )
+            value={
+              lease.start_date
             }
-            className={
-              controlClass
-            }
+            disabled
+            className={`${controlClass} cursor-not-allowed opacity-60`}
           />
         </FormField>
 
-        <FormField label="End date">
+        <FormField
+          label="Lease end date"
+          error={
+            errors.end_date
+          }
+          hint="Must stay on a full calendar-month boundary from the lease start."
+        >
           <input
             type="date"
             value={endDate}
-            onChange={(e) =>
+            onChange={(e) => {
               setEndDate(
                 e.target.value,
-              )
-            }
+              );
+
+              setErrors(
+                (current) => ({
+                  ...current,
+                  end_date: "",
+                }),
+              );
+            }}
             className={
               controlClass
             }
@@ -1345,22 +1392,39 @@ function EditLeaseForm({
         </FormField>
 
         <div className="sm:col-span-2">
-          <FormField label="Monthly rent">
+          <FormField
+            label="Monthly rent"
+            error={
+              errors.rent_amount
+            }
+            hint="Changing rent updates future PENDING monthly obligations only. Paid history is preserved."
+          >
             <input
               type="number"
               min="0.01"
               step="0.01"
               value={rent}
-              onChange={(e) =>
+              onChange={(e) => {
                 setRent(
                   e.target.value,
-                )
-              }
+                );
+
+                setErrors(
+                  (current) => ({
+                    ...current,
+                    rent_amount: "",
+                  }),
+                );
+              }}
               className={
                 controlClass
               }
             />
           </FormField>
+        </div>
+
+        <div className="sm:col-span-2 rounded-2xl bg-cyan/35 p-4 text-xs text-deep-blue dark:bg-moss/60 dark:text-lime-soft">
+          Extending the term creates missing future monthly obligations. Shortening it cancels future unpaid obligations outside the new term.
         </div>
 
         <button className="sm:col-span-2 rounded-2xl bg-celestial py-3.5 text-sm font-semibold text-white dark:bg-moss dark:text-lime-soft">

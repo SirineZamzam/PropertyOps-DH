@@ -1,17 +1,42 @@
+from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    status,
+)
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import require_owner
+from app.api.dependencies import (
+    require_owner,
+)
 from app.db.session import get_db
-from app.models.lease import Lease, LeaseStatus
+from app.models.lease import (
+    Lease,
+    LeaseStatus,
+)
 from app.models.unit import UnitStatus
-from app.models.user import User, UserRole
-from app.schemas.lease import LeaseCreate, LeaseRead
-from app.services.ownership import get_owned_unit
+from app.models.user import (
+    User,
+    UserRole,
+)
+from app.schemas.lease import (
+    LeaseCreate,
+    LeaseRead,
+)
+from app.services.lease_rent_schedule import (
+    cancel_future_obligations,
+    generate_initial_rent_schedule,
+    validate_lease_term,
+)
+from app.services.ownership import (
+    get_owned_lease,
+    get_owned_unit,
+)
 
 
 router = APIRouter()
@@ -25,8 +50,14 @@ router = APIRouter()
 def create_lease(
     unit_id: int,
     payload: LeaseCreate,
-    db: Annotated[Session, Depends(get_db)],
-    current_owner: Annotated[User, Depends(require_owner)],
+    db: Annotated[
+        Session,
+        Depends(get_db),
+    ],
+    current_owner: Annotated[
+        User,
+        Depends(require_owner),
+    ],
 ) -> Lease:
     unit = get_owned_unit(
         db,
@@ -39,11 +70,33 @@ def create_lease(
         payload.tenant_user_id,
     )
 
-    if tenant is None or tenant.role != UserRole.TENANT:
+    if (
+        tenant is None
+        or tenant.role
+        != UserRole.TENANT
+    ):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A valid tenant account is required.",
+            status_code=(
+                status.HTTP_400_BAD_REQUEST
+            ),
+            detail=(
+                "A valid tenant "
+                "account is required."
+            ),
         )
+
+    try:
+        validate_lease_term(
+            payload.start_date,
+            payload.end_date,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_422_UNPROCESSABLE_ENTITY
+            ),
+            detail=str(exc),
+        ) from exc
 
     lease = Lease(
         unit_id=unit.id,
@@ -54,19 +107,39 @@ def create_lease(
         status=LeaseStatus.ACTIVE,
     )
 
-    db.add(lease)
-
-    if unit.status != UnitStatus.UNAVAILABLE:
-        unit.status = UnitStatus.OCCUPIED
-
     try:
+        db.add(lease)
+
+        # We need the lease ID before generating
+        # its monthly rent obligations.
+        db.flush()
+
+        generate_initial_rent_schedule(
+            db,
+            lease,
+        )
+
+        if (
+            unit.status
+            != UnitStatus.UNAVAILABLE
+        ):
+            unit.status = (
+                UnitStatus.OCCUPIED
+            )
+
         db.commit()
+
     except IntegrityError:
         db.rollback()
 
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="This unit already has an active lease.",
+            status_code=(
+                status.HTTP_409_CONFLICT
+            ),
+            detail=(
+                "This unit already has "
+                "an active lease."
+            ),
         )
 
     db.refresh(lease)
@@ -76,12 +149,20 @@ def create_lease(
 
 @router.get(
     "/units/{unit_id}/leases",
-    response_model=list[LeaseRead],
+    response_model=list[
+        LeaseRead
+    ],
 )
 def list_unit_leases(
     unit_id: int,
-    db: Annotated[Session, Depends(get_db)],
-    current_owner: Annotated[User, Depends(require_owner)],
+    db: Annotated[
+        Session,
+        Depends(get_db),
+    ],
+    current_owner: Annotated[
+        User,
+        Depends(require_owner),
+    ],
 ) -> list[Lease]:
     get_owned_unit(
         db,
@@ -91,11 +172,20 @@ def list_unit_leases(
 
     statement = (
         select(Lease)
-        .where(Lease.unit_id == unit_id)
-        .order_by(Lease.start_date.desc())
+        .where(
+            Lease.unit_id
+            == unit_id
+        )
+        .order_by(
+            Lease.start_date.desc()
+        )
     )
 
-    return list(db.scalars(statement).all())
+    return list(
+        db.scalars(
+            statement
+        ).all()
+    )
 
 
 @router.post(
@@ -104,20 +194,20 @@ def list_unit_leases(
 )
 def end_lease(
     lease_id: int,
-    db: Annotated[Session, Depends(get_db)],
-    current_owner: Annotated[User, Depends(require_owner)],
+    db: Annotated[
+        Session,
+        Depends(get_db),
+    ],
+    current_owner: Annotated[
+        User,
+        Depends(require_owner),
+    ],
 ) -> Lease:
-    statement = select(Lease).where(
-        Lease.id == lease_id
+    lease = get_owned_lease(
+        db,
+        current_owner.id,
+        lease_id,
     )
-
-    lease = db.scalar(statement)
-
-    if lease is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Lease not found.",
-        )
 
     unit = get_owned_unit(
         db,
@@ -125,21 +215,49 @@ def end_lease(
         lease.unit_id,
     )
 
-    if lease.status == LeaseStatus.ENDED:
+    if (
+        lease.status
+        == LeaseStatus.ENDED
+    ):
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Lease is already ended.",
+            status_code=(
+                status.HTTP_409_CONFLICT
+            ),
+            detail=(
+                "Lease is already ended."
+            ),
         )
 
-    lease.status = LeaseStatus.ENDED
+    today = date.today()
 
-    if lease.end_date is None:
-        from datetime import date
+    # If a future lease is ended before it starts,
+    # use its start date as the effective boundary.
+    effective_end = max(
+        today,
+        lease.start_date,
+    )
 
-        lease.end_date = date.today()
+    lease.status = (
+        LeaseStatus.ENDED
+    )
 
-    if unit.status != UnitStatus.UNAVAILABLE:
-        unit.status = UnitStatus.VACANT
+    lease.end_date = (
+        effective_end
+    )
+
+    cancel_future_obligations(
+        db,
+        lease,
+        cutoff=effective_end,
+    )
+
+    if (
+        unit.status
+        != UnitStatus.UNAVAILABLE
+    ):
+        unit.status = (
+            UnitStatus.VACANT
+        )
 
     db.commit()
     db.refresh(lease)
