@@ -103,10 +103,20 @@ export async function successAlert(
   const palette =
     colors();
 
-  await Swal.fire({
+  void Swal.fire({
     title,
     text,
     icon: "success",
+
+    toast: true,
+
+    position: "top-end",
+
+    showConfirmButton: false,
+
+    timer: 2200,
+
+    timerProgressBar: true,
 
     background:
       palette.background,
@@ -117,11 +127,10 @@ export async function successAlert(
     iconColor:
       "#519DC4",
 
-    confirmButtonColor:
-      palette.confirm,
-
-    confirmButtonText:
-      "Done",
+    customClass: {
+      popup:
+        "rounded-2xl shadow-xl",
+    },
   });
 }
 
@@ -146,5 +155,13 @@ export async function errorAlert(
 
     confirmButtonColor:
       palette.confirm,
+
+    confirmButtonText:
+      "Close",
+
+    customClass: {
+      popup:
+        "rounded-[2rem]",
+    },
   });
 }
