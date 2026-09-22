@@ -1,5 +1,4 @@
 import math
-
 from typing import Annotated
 
 from fastapi import (
@@ -46,6 +45,8 @@ from app.schemas.workflow import (
     OwnerMaintenancePage,
     OwnerRentItem,
     OwnerRentPage,
+    OwnerTenantItem,
+    OwnerTenantPage,
     PageMeta,
 )
 
@@ -271,6 +272,207 @@ def list_owner_leases(
     ]
 
     return OwnerLeasePage(
+        items=items,
+        meta=make_meta(
+            page,
+            page_size,
+            total,
+        ),
+    )
+
+
+@router.get(
+    "/owner/tenants/current",
+    response_model=OwnerTenantPage,
+)
+def list_owner_current_tenants(
+    db: Annotated[
+        Session,
+        Depends(get_db),
+    ],
+    owner: Annotated[
+        User,
+        Depends(require_owner),
+    ],
+    page: int = Query(
+        1,
+        ge=1,
+    ),
+    page_size: int = Query(
+        8,
+        ge=1,
+        le=100,
+    ),
+    property_id: int | None = None,
+    building_id: int | None = None,
+    unit_id: int | None = None,
+    tenant: str | None = None,
+):
+    filters = [
+        Property.owner_id
+        == owner.id,
+        Lease.status
+        == LeaseStatus.ACTIVE,
+    ]
+
+    if property_id is not None:
+        filters.append(
+            Property.id
+            == property_id
+        )
+
+    if building_id is not None:
+        filters.append(
+            Building.id
+            == building_id
+        )
+
+    if unit_id is not None:
+        filters.append(
+            Unit.id
+            == unit_id
+        )
+
+    if tenant:
+        pattern = (
+            f"%{tenant.strip()}%"
+        )
+
+        filters.append(
+            or_(
+                User.first_name.ilike(
+                    pattern
+                ),
+                User.last_name.ilike(
+                    pattern
+                ),
+                User.email.ilike(
+                    pattern
+                ),
+            )
+        )
+
+    count_statement = (
+        select(
+            func.count(
+                Lease.id
+            )
+        )
+        .join(
+            Unit,
+            Lease.unit_id
+            == Unit.id,
+        )
+        .join(
+            Building,
+            Unit.building_id
+            == Building.id,
+        )
+        .join(
+            Property,
+            Building.property_id
+            == Property.id,
+        )
+        .join(
+            User,
+            Lease.tenant_user_id
+            == User.id,
+        )
+        .where(*filters)
+    )
+
+    total = (
+        db.scalar(
+            count_statement
+        )
+        or 0
+    )
+
+    statement = (
+        select(
+            Lease,
+            Property,
+            Building,
+            Unit,
+            User,
+        )
+        .join(
+            Unit,
+            Lease.unit_id
+            == Unit.id,
+        )
+        .join(
+            Building,
+            Unit.building_id
+            == Building.id,
+        )
+        .join(
+            Property,
+            Building.property_id
+            == Property.id,
+        )
+        .join(
+            User,
+            Lease.tenant_user_id
+            == User.id,
+        )
+        .where(*filters)
+        .order_by(
+            User.first_name.asc(),
+            User.last_name.asc(),
+            User.email.asc(),
+        )
+        .offset(
+            (page - 1)
+            * page_size
+        )
+        .limit(page_size)
+    )
+
+    rows = db.execute(
+        statement
+    ).all()
+
+    items = [
+        OwnerTenantItem(
+            lease_id=lease.id,
+            tenant=tenant_user,
+            property_id=(
+                property_record.id
+            ),
+            property_name=(
+                property_record.name
+            ),
+            building_id=(
+                building.id
+            ),
+            building_name=(
+                building.name
+            ),
+            unit_id=unit.id,
+            unit_number=(
+                unit.unit_number
+            ),
+            start_date=(
+                lease.start_date
+            ),
+            end_date=(
+                lease.end_date
+            ),
+            rent_amount=(
+                lease.rent_amount
+            ),
+        )
+        for (
+            lease,
+            property_record,
+            building,
+            unit,
+            tenant_user,
+        ) in rows
+    ]
+
+    return OwnerTenantPage(
         items=items,
         meta=make_meta(
             page,

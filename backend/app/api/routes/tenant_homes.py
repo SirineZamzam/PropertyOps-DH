@@ -85,6 +85,7 @@ def list_tenant_homes(
             Unit,
             Building,
             Property,
+            User,
         )
         .join(
             Unit,
@@ -100,6 +101,11 @@ def list_tenant_homes(
             Property,
             Building.property_id
             == Property.id,
+        )
+        .join(
+            User,
+            Property.owner_id
+            == User.id,
         )
         .where(
             Lease.tenant_user_id
@@ -144,12 +150,14 @@ def list_tenant_homes(
             end_date=(
                 lease.end_date
             ),
+            owner=owner_user,
         )
         for (
             lease,
             unit,
             building,
             property_record,
+            owner_user,
         ) in rows
     ]
 

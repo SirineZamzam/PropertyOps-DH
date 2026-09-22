@@ -32,6 +32,10 @@ import {
 } from "../components/Pagination";
 
 import {
+  OwnerTenantsPanel,
+} from "../components/OwnerTenantsPanel";
+
+import {
   ApiError,
   apiRequest,
   type FieldErrors,
@@ -67,6 +71,13 @@ const EMPTY_META = {
 
 
 export default function PeopleLeasesPage() {
+  const [
+    activeView,
+    setActiveView,
+  ] = useState<
+    "TENANTS" | "LEASES"
+  >("TENANTS");
+
   const [
     structure,
     setStructure,
@@ -329,253 +340,305 @@ export default function PeopleLeasesPage() {
         </div>
       </div>
 
-      {/* FILTERS */}
-      <section className="mt-7 rounded-[2rem] border border-celestial/10 bg-white p-5 dark:border-ash/10 dark:bg-dark-card">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <LocationFields
-            structure={structure}
-            propertyId={
-              propertyId
-            }
-            buildingId={
-              buildingId
-            }
-            unitId={unitId}
-            onPropertyChange={(
-              value,
-            ) => {
-              setPropertyId(
-                value,
-              );
-              setPage(1);
-            }}
-            onBuildingChange={(
-              value,
-            ) => {
-              setBuildingId(
-                value,
-              );
-              setPage(1);
-            }}
-            onUnitChange={(
-              value,
-            ) => {
-              setUnitId(value);
-              setPage(1);
-            }}
-            allowAll
-          />
-
-          <FormField label="Tenant">
-            <div className="relative">
-              <Search
-                size={16}
-                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-celestial dark:text-ash"
-              />
-
-              <input
-                value={
-                  tenantSearch
-                }
-                onChange={(
-                  event,
-                ) => {
-                  setTenantSearch(
-                    event.target
-                      .value,
-                  );
-
-                  setPage(1);
-                }}
-                placeholder="Name or email"
-                className={`${controlClass} pl-10`}
-              />
-            </div>
-          </FormField>
-
-          <FormField label="Status">
-            <select
-              value={
-                statusFilter
-              }
-              onChange={(
-                event,
-              ) => {
-                setStatusFilter(
-                  event.target
-                    .value,
-                );
-
-                setPage(1);
-              }}
-              className={
-                controlClass
-              }
-            >
-              <option value="">
-                All statuses
-              </option>
-
-              <option value="ACTIVE">
-                Active
-              </option>
-
-              <option value="ENDED">
-                Ended
-              </option>
-            </select>
-          </FormField>
-        </div>
+      <div className="mt-7 inline-flex rounded-2xl bg-cyan/35 p-1 dark:bg-moss/50">
+        <button
+          type="button"
+          onClick={() =>
+            setActiveView(
+              "TENANTS",
+            )
+          }
+          className={[
+            "rounded-xl px-5 py-2.5 text-sm font-semibold transition",
+            activeView ===
+            "TENANTS"
+              ? "bg-white text-deep-blue shadow-sm dark:bg-phthalo dark:text-white"
+              : "text-deep-blue/55 dark:text-lime-soft/65",
+          ].join(" ")}
+        >
+          Current tenants
+        </button>
 
         <button
           type="button"
-          onClick={
-            resetFilters
+          onClick={() =>
+            setActiveView(
+              "LEASES",
+            )
           }
-          className="mt-4 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-celestial transition hover:bg-cyan/30 hover:text-deep-blue dark:text-ash dark:hover:bg-moss"
+          className={[
+            "rounded-xl px-5 py-2.5 text-sm font-semibold transition",
+            activeView ===
+            "LEASES"
+              ? "bg-white text-deep-blue shadow-sm dark:bg-phthalo dark:text-white"
+              : "text-deep-blue/55 dark:text-lime-soft/65",
+          ].join(" ")}
         >
-          <FilterX size={15} />
-          Clear filters
+          Leases
         </button>
-      </section>
-
-      {/* LEASE CARDS */}
-      <div className="mt-6 grid gap-4 xl:grid-cols-2">
-        {data.items.map(
-          (lease) => {
-            const name =
-              [
-                lease.tenant
-                  .first_name,
-
-                lease.tenant
-                  .last_name,
-              ]
-                .filter(
-                  Boolean,
-                )
-                .join(" ");
-
-            return (
-              <article
-                key={
-                  lease.id
-                }
-                className="rounded-[1.8rem] border border-celestial/10 bg-white p-5 shadow-sm dark:border-ash/10 dark:bg-dark-card"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="flex gap-4">
-                    <div className="grid size-13 place-items-center rounded-2xl bg-cyan text-deep-blue dark:bg-moss dark:text-lime-soft">
-                      <Users
-                        size={21}
-                      />
-                    </div>
-
-                    <div>
-                      <h2 className="font-semibold text-deep-blue dark:text-white">
-                        {name ||
-                          lease
-                            .tenant
-                            .email}
-                      </h2>
-
-                      <p className="mt-1 text-xs text-deep-blue/45 dark:text-white/40">
-                        {
-                          lease
-                            .tenant
-                            .email
-                        }
-                      </p>
-
-                      <p className="mt-1 text-xs text-deep-blue/45 dark:text-white/40">
-                        {
-                          lease
-                            .tenant
-                            .phone_number ??
-                          "No phone number"
-                        }
-                      </p>
-                    </div>
-                  </div>
-
-                  <span
-                    className={[
-                      "rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]",
-                      lease.status ===
-                      "ACTIVE"
-                        ? "bg-cyan text-deep-blue dark:bg-moss dark:text-lime-soft"
-                        : "bg-ash text-slate-green",
-                    ].join(
-                      " ",
-                    )}
-                  >
-                    {
-                      lease.status
-                    }
-                  </span>
-                </div>
-
-                <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                  <LeaseInfo
-                    label="Home"
-                    value={`${lease.property_name} · ${lease.building_name} · Unit ${lease.unit_number}`}
-                  />
-
-                  <LeaseInfo
-                    label="Monthly rent"
-                    value={String(
-                      lease.rent_amount,
-                    )}
-                  />
-
-                  <LeaseInfo
-                    label="Dates"
-                    value={`${lease.start_date} → ${lease.end_date ?? "Current"}`}
-                  />
-                </div>
-
-                {lease.status ===
-                  "ACTIVE" && (
-                  <div className="mt-5 flex gap-2 border-t border-celestial/8 pt-4 dark:border-ash/8">
-                    <button
-                      onClick={() =>
-                        setEditing(
-                          lease,
-                        )
-                      }
-                      className="flex items-center gap-2 rounded-xl bg-cyan/50 px-3 py-2 text-xs font-semibold text-deep-blue dark:bg-moss dark:text-lime-soft"
-                    >
-                      <Pencil
-                        size={14}
-                      />
-                      Edit
-                    </button>
-
-                    <button
-                      onClick={() =>
-                        endLease(
-                          lease,
-                        )
-                      }
-                      className="flex items-center gap-2 rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 dark:border-red-900/50 dark:text-red-300"
-                    >
-                      <CalendarDays
-                        size={14}
-                      />
-                      End lease
-                    </button>
-                  </div>
-                )}
-              </article>
-            );
-          },
-        )}
       </div>
 
-      <Pagination
-        meta={data.meta}
-        onChange={setPage}
-      />
+      {activeView ===
+        "TENANTS" && (
+        <div className="mt-6">
+          <OwnerTenantsPanel
+            structure={structure}
+          />
+        </div>
+      )}
+
+      {activeView ===
+        "LEASES" && (
+        <>
+          {/* FILTERS */}
+          <section className="mt-7 rounded-[2rem] border border-celestial/10 bg-white p-5 dark:border-ash/10 dark:bg-dark-card">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              <LocationFields
+                structure={structure}
+                propertyId={
+                  propertyId
+                }
+                buildingId={
+                  buildingId
+                }
+                unitId={unitId}
+                onPropertyChange={(
+                  value,
+                ) => {
+                  setPropertyId(
+                    value,
+                  );
+                  setPage(1);
+                }}
+                onBuildingChange={(
+                  value,
+                ) => {
+                  setBuildingId(
+                    value,
+                  );
+                  setPage(1);
+                }}
+                onUnitChange={(
+                  value,
+                ) => {
+                  setUnitId(value);
+                  setPage(1);
+                }}
+                allowAll
+              />
+
+              <FormField label="Tenant">
+                <div className="relative">
+                  <Search
+                    size={16}
+                    className="absolute left-3.5 top-1/2 -translate-y-1/2 text-celestial dark:text-ash"
+                  />
+
+                  <input
+                    value={
+                      tenantSearch
+                    }
+                    onChange={(
+                      event,
+                    ) => {
+                      setTenantSearch(
+                        event.target
+                          .value,
+                      );
+
+                      setPage(1);
+                    }}
+                    placeholder="Name or email"
+                    className={`${controlClass} pl-10`}
+                  />
+                </div>
+              </FormField>
+
+              <FormField label="Status">
+                <select
+                  value={
+                    statusFilter
+                  }
+                  onChange={(
+                    event,
+                  ) => {
+                    setStatusFilter(
+                      event.target
+                        .value,
+                    );
+
+                    setPage(1);
+                  }}
+                  className={
+                    controlClass
+                  }
+                >
+                  <option value="">
+                    All statuses
+                  </option>
+
+                  <option value="ACTIVE">
+                    Active
+                  </option>
+
+                  <option value="ENDED">
+                    Ended
+                  </option>
+                </select>
+              </FormField>
+            </div>
+
+            <button
+              type="button"
+              onClick={
+                resetFilters
+              }
+              className="mt-4 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold text-celestial transition hover:bg-cyan/30 hover:text-deep-blue dark:text-ash dark:hover:bg-moss"
+            >
+              <FilterX size={15} />
+              Clear filters
+            </button>
+          </section>
+
+          {/* LEASE CARDS */}
+          <div className="mt-6 grid gap-4 xl:grid-cols-2">
+            {data.items.map(
+              (lease) => {
+                const name =
+                  [
+                    lease.tenant
+                      .first_name,
+
+                    lease.tenant
+                      .last_name,
+                  ]
+                    .filter(
+                      Boolean,
+                    )
+                    .join(" ");
+
+                return (
+                  <article
+                    key={
+                      lease.id
+                    }
+                    className="rounded-[1.8rem] border border-celestial/10 bg-white p-5 shadow-sm dark:border-ash/10 dark:bg-dark-card"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="flex gap-4">
+                        <div className="grid size-13 place-items-center rounded-2xl bg-cyan text-deep-blue dark:bg-moss dark:text-lime-soft">
+                          <Users
+                            size={21}
+                          />
+                        </div>
+
+                        <div>
+                          <h2 className="font-semibold text-deep-blue dark:text-white">
+                            {name ||
+                              lease
+                                .tenant
+                                .email}
+                          </h2>
+
+                          <p className="mt-1 text-xs text-deep-blue/45 dark:text-white/40">
+                            {
+                              lease
+                                .tenant
+                                .email
+                            }
+                          </p>
+
+                          <p className="mt-1 text-xs text-deep-blue/45 dark:text-white/40">
+                            {
+                              lease
+                                .tenant
+                                .phone_number ??
+                              "No phone number"
+                            }
+                          </p>
+                        </div>
+                      </div>
+
+                      <span
+                        className={[
+                          "rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em]",
+                          lease.status ===
+                          "ACTIVE"
+                            ? "bg-cyan text-deep-blue dark:bg-moss dark:text-lime-soft"
+                            : "bg-ash text-slate-green",
+                        ].join(
+                          " ",
+                        )}
+                      >
+                        {
+                          lease.status
+                        }
+                      </span>
+                    </div>
+
+                    <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                      <LeaseInfo
+                        label="Home"
+                        value={`${lease.property_name} · ${lease.building_name} · Unit ${lease.unit_number}`}
+                      />
+
+                      <LeaseInfo
+                        label="Monthly rent"
+                        value={String(
+                          lease.rent_amount,
+                        )}
+                      />
+
+                      <LeaseInfo
+                        label="Dates"
+                        value={`${lease.start_date} → ${lease.end_date ?? "Current"}`}
+                      />
+                    </div>
+
+                    {lease.status ===
+                      "ACTIVE" && (
+                      <div className="mt-5 flex gap-2 border-t border-celestial/8 pt-4 dark:border-ash/8">
+                        <button
+                          onClick={() =>
+                            setEditing(
+                              lease,
+                            )
+                          }
+                          className="flex items-center gap-2 rounded-xl bg-cyan/50 px-3 py-2 text-xs font-semibold text-deep-blue dark:bg-moss dark:text-lime-soft"
+                        >
+                          <Pencil
+                            size={14}
+                          />
+                          Edit
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            endLease(
+                              lease,
+                            )
+                          }
+                          className="flex items-center gap-2 rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 dark:border-red-900/50 dark:text-red-300"
+                        >
+                          <CalendarDays
+                            size={14}
+                          />
+                          End lease
+                        </button>
+                      </div>
+                    )}
+                  </article>
+                );
+              },
+            )}
+          </div>
+
+          <Pagination
+            meta={data.meta}
+            onChange={setPage}
+          />
+        </>
+      )}
 
       {tenantModal && (
         <TenantForm
@@ -1225,7 +1288,7 @@ function CreateLeaseForm({
         </FormField>
 
         <div className="md:col-span-2 rounded-2xl bg-cyan/35 p-4 text-xs text-deep-blue dark:bg-moss/60 dark:text-lime-soft">
-            One PENDING rent obligation will be created for each calendar month of the lease.
+          One PENDING rent obligation will be created for each calendar month of the lease.
         </div>
 
         <button className="md:col-span-2 rounded-2xl bg-celestial py-3.5 text-sm font-semibold text-white dark:bg-moss dark:text-lime-soft">

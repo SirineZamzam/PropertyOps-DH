@@ -4,6 +4,9 @@ import {
   CreditCard,
   DoorOpen,
   Home,
+  Mail,
+  Phone,
+  UserRound,
   Wrench,
 } from "lucide-react";
 
@@ -16,7 +19,9 @@ import {
   Link,
 } from "react-router";
 
-import { HomeSelector } from "../components/HomeSelector";
+import {
+  HomeSelector,
+} from "../components/HomeSelector";
 
 import {
   useTenantHome,
@@ -41,9 +46,7 @@ export default function TenantHomePage() {
   const [
     maintenance,
     setMaintenance,
-  ] = useState<
-    Maintenance[]
-  >([]);
+  ] = useState<Maintenance[]>([]);
 
 
   useEffect(() => {
@@ -52,14 +55,10 @@ export default function TenantHomePage() {
       return;
     }
 
-    apiRequest<
-      Maintenance[]
-    >(
+    apiRequest<Maintenance[]>(
       `/tenant/homes/${selectedHome.lease_id}/maintenance`,
     )
-      .then(
-        setMaintenance,
-      )
+      .then(setMaintenance)
       .catch(() =>
         setMaintenance([]),
       );
@@ -99,8 +98,7 @@ export default function TenantHomePage() {
           </h1>
 
           <p className="mt-2 text-sm text-deep-blue/45 dark:text-white/40">
-            Your account currently
-            has no active lease.
+            Your account currently has no active lease.
           </p>
         </div>
       </div>
@@ -111,6 +109,17 @@ export default function TenantHomePage() {
   if (!selectedHome) {
     return null;
   }
+
+
+  const ownerName =
+    [
+      selectedHome.owner
+        .first_name,
+      selectedHome.owner
+        .last_name,
+    ]
+      .filter(Boolean)
+      .join(" ");
 
 
   return (
@@ -130,19 +139,13 @@ export default function TenantHomePage() {
           </p>
 
           <h1 className="mt-3 max-w-2xl text-4xl font-semibold tracking-[-0.055em] sm:text-5xl">
-            {
-              selectedHome.property_name
-            }
+            {selectedHome.property_name}
           </h1>
 
           <p className="mt-3 text-sm opacity-65">
-            {
-              selectedHome.building_name
-            }{" "}
-            · Unit{" "}
-            {
-              selectedHome.unit_number
-            }
+            {selectedHome.building_name}
+            {" · Unit "}
+            {selectedHome.unit_number}
           </p>
         </div>
       </section>
@@ -177,6 +180,65 @@ export default function TenantHomePage() {
         />
       </div>
 
+      <section className="mt-6 rounded-[2rem] border border-celestial/10 bg-white p-6 dark:border-ash/10 dark:bg-dark-card">
+        <div className="flex items-start gap-4">
+          <div className="grid size-12 shrink-0 place-items-center rounded-2xl bg-cyan text-deep-blue dark:bg-moss dark:text-lime-soft">
+            <UserRound size={20} />
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-celestial dark:text-ash">
+              Property owner
+            </p>
+
+            <h2 className="mt-1 text-xl font-semibold text-deep-blue dark:text-white">
+              {ownerName ||
+                selectedHome.owner.email}
+            </h2>
+
+            <p className="mt-1 text-sm text-deep-blue/45 dark:text-white/40">
+              Contact your property owner about lease or property questions.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <a
+            href={`mailto:${selectedHome.owner.email}`}
+            className="flex items-center gap-3 rounded-2xl bg-light-canvas p-4 text-sm font-semibold text-deep-blue transition hover:bg-cyan/35 dark:bg-phthalo dark:text-white"
+          >
+            <Mail
+              size={17}
+              className="text-celestial dark:text-ash"
+            />
+
+            <span className="truncate">
+              {selectedHome.owner.email}
+            </span>
+          </a>
+
+          {selectedHome.owner
+            .phone_number ? (
+            <a
+              href={`tel:${selectedHome.owner.phone_number}`}
+              className="flex items-center gap-3 rounded-2xl bg-light-canvas p-4 text-sm font-semibold text-deep-blue transition hover:bg-cyan/35 dark:bg-phthalo dark:text-white"
+            >
+              <Phone
+                size={17}
+                className="text-celestial dark:text-ash"
+              />
+
+              {selectedHome.owner.phone_number}
+            </a>
+          ) : (
+            <div className="flex items-center gap-3 rounded-2xl bg-light-canvas p-4 text-sm text-deep-blue/45 dark:bg-phthalo dark:text-white/40">
+              <Phone size={17} />
+              No phone number provided
+            </div>
+          )}
+        </div>
+      </section>
+
       <div className="mt-6 grid gap-5 md:grid-cols-2">
         <Link
           to="/app/maintenance"
@@ -204,14 +266,10 @@ export default function TenantHomePage() {
           to="/app/rent"
           className="group rounded-[2rem] bg-ash p-6 text-slate-green transition hover:-translate-y-2"
         >
-          <CreditCard
-            size={25}
-          />
+          <CreditCard size={25} />
 
           <p className="mt-10 text-3xl font-semibold">
-            {
-              selectedHome.rent_amount
-            }
+            {selectedHome.rent_amount}
           </p>
 
           <p className="mt-1 text-sm opacity-60">
@@ -240,15 +298,11 @@ export default function TenantHomePage() {
                 >
                   <div>
                     <p className="font-semibold text-deep-blue dark:text-white">
-                      {
-                        item.category
-                      }
+                      {item.category}
                     </p>
 
                     <p className="mt-1 line-clamp-1 text-xs text-deep-blue/42 dark:text-white/35">
-                      {
-                        item.description
-                      }
+                      {item.description}
                     </p>
                   </div>
 
@@ -264,8 +318,7 @@ export default function TenantHomePage() {
 
           {!maintenance.length && (
             <p className="text-sm text-deep-blue/40 dark:text-white/35">
-              No maintenance
-              history for this home.
+              No maintenance history for this home.
             </p>
           )}
         </div>

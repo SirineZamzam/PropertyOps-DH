@@ -63,6 +63,17 @@ class UserSummary(BaseModel):
         from_attributes=True,
     )
 
+class OwnerContact(BaseModel):
+    id: int
+    first_name: str | None
+    last_name: str | None
+    phone_number: str | None
+    email: EmailStr
+
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
+
 
 class UserProfileUpdate(BaseModel):
     first_name: str | None = Field(
@@ -504,6 +515,28 @@ class OwnerLeasePage(BaseModel):
     items: list[OwnerLeaseItem]
     meta: PageMeta
 
+class OwnerTenantItem(BaseModel):
+    lease_id: int
+    tenant: UserSummary
+
+    property_id: int
+    property_name: str
+
+    building_id: int
+    building_name: str
+
+    unit_id: int
+    unit_number: str
+
+    start_date: date
+    end_date: date | None
+    rent_amount: Decimal
+
+
+class OwnerTenantPage(BaseModel):
+    items: list[OwnerTenantItem]
+    meta: PageMeta
+
 
 class OwnerMaintenanceItem(BaseModel):
     id: int
@@ -597,3 +630,4 @@ class TenantHomeItem(BaseModel):
     rent_amount: Decimal
     start_date: date
     end_date: date | None
+    owner: OwnerContact

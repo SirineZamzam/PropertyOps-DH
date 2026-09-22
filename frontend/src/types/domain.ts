@@ -206,6 +206,37 @@ export interface OwnerLeasePage {
 }
 
 
+export interface OwnerTenantItem {
+  lease_id: number;
+  tenant: User;
+
+  property_id: number;
+  property_name: string;
+
+  building_id: number;
+  building_name: string;
+
+  unit_id: number;
+  unit_number: string;
+
+  start_date: string;
+
+  end_date:
+    | string
+    | null;
+
+  rent_amount:
+    | number
+    | string;
+}
+
+
+export interface OwnerTenantPage {
+  items: OwnerTenantItem[];
+  meta: PageMeta;
+}
+
+
 export interface OwnerMaintenanceItem {
   id: number;
 
@@ -341,6 +372,25 @@ export interface UnitOccupancy {
 }
 
 
+export interface OwnerContact {
+  id: number;
+
+  first_name:
+    | string
+    | null;
+
+  last_name:
+    | string
+    | null;
+
+  phone_number:
+    | string
+    | null;
+
+  email: string;
+}
+
+
 export interface TenantHome {
   lease_id: number;
 
@@ -362,7 +412,10 @@ export interface TenantHome {
   end_date:
     | string
     | null;
+
+  owner: OwnerContact;
 }
+
 
 export interface TenantRentObligation {
   id: number;
