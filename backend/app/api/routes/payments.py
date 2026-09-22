@@ -1,6 +1,7 @@
 from datetime import (
     date,
     datetime,
+    timedelta,
     timezone,
 )
 
@@ -534,15 +535,88 @@ def list_owner_payments(
         ge=1,
         le=100,
     ),
+
+    payment_status: (
+        PaymentStatus
+        | None
+    ) = Query(
+        default=None,
+    ),
+
+    recent_days: (
+        int
+        | None
+    ) = Query(
+        default=None,
+        ge=1,
+        le=365,
+    ),
 ):
-    rows = db.execute(
+    statement = (
         owner_payment_statement(
             owner.id
         )
-        .order_by(
-            Payment.created_at.desc()
+    )
+
+    if (
+        payment_status
+        is not None
+    ):
+        statement = (
+            statement.where(
+                Payment.status
+                == payment_status
+            )
         )
-        .limit(limit)
+
+    if (
+        recent_days
+        is not None
+    ):
+        cutoff = (
+            datetime.now(
+                timezone.utc
+            )
+            - timedelta(
+                days=recent_days
+            )
+        )
+
+        statement = (
+            statement.where(
+                Payment.paid_at
+                .is_not(None),
+
+                Payment.paid_at
+                >= cutoff,
+            )
+        )
+
+    if (
+        recent_days
+        is not None
+    ):
+        statement = (
+            statement.order_by(
+                Payment.paid_at
+                .desc(),
+                Payment.created_at
+                .desc(),
+            )
+        )
+
+    else:
+        statement = (
+            statement.order_by(
+                Payment.created_at
+                .desc()
+            )
+        )
+
+    rows = db.execute(
+        statement.limit(
+            limit
+        )
     ).all()
 
     return [
@@ -563,7 +637,6 @@ def list_owner_payments(
             tenant,
         ) in rows
     ]
-
 
 @router.get(
     "/owner/payments/{payment_id}",

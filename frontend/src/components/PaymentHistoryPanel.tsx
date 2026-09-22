@@ -38,7 +38,6 @@ type PaymentMethod =
 
 interface PaymentHistoryItem {
   id: number;
-
   rent_obligation_id: number;
 
   amount:
@@ -46,42 +45,26 @@ interface PaymentHistoryItem {
     | number;
 
   currency: string;
-
-  status:
-    PaymentStatus;
-
-  payment_method:
-    PaymentMethod;
+  status: PaymentStatus;
+  payment_method: PaymentMethod;
 
   manual_note:
     | string
     | null;
 
   due_date: string;
-
   created_at: string;
 
   paid_at:
     | string
     | null;
 
-  tenant_email?:
-    string;
-
-  tenant_first_name?:
-    string | null;
-
-  tenant_last_name?:
-    string | null;
-
-  property_name?:
-    string;
-
-  building_name?:
-    string;
-
-  unit_number?:
-    string;
+  tenant_email?: string;
+  tenant_first_name?: string | null;
+  tenant_last_name?: string | null;
+  property_name?: string;
+  building_name?: string;
+  unit_number?: string;
 }
 
 
@@ -99,20 +82,16 @@ function formatDate(
       ? value
       : `${value}T12:00:00`;
 
-  return new Intl
-    .DateTimeFormat(
-      "en",
-      {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      },
-    )
-    .format(
-      new Date(
-        normalized,
-      ),
-    );
+  return new Intl.DateTimeFormat(
+    "en",
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    },
+  ).format(
+    new Date(normalized),
+  );
 }
 
 
@@ -151,13 +130,9 @@ function StatusIcon({
 }: {
   status: PaymentStatus;
 }) {
-  if (
-    status === "PAID"
-  ) {
+  if (status === "PAID") {
     return (
-      <CheckCircle2
-        size={15}
-      />
+      <CheckCircle2 size={15} />
     );
   }
 
@@ -166,16 +141,12 @@ function StatusIcon({
     status === "EXPIRED"
   ) {
     return (
-      <CircleX
-        size={15}
-      />
+      <CircleX size={15} />
     );
   }
 
   return (
-    <Clock3
-      size={15}
-    />
+    <Clock3 size={15} />
   );
 }
 
@@ -193,22 +164,19 @@ export function PaymentHistoryPanel({
   const [
     payments,
     setPayments,
-  ] =
-    useState<
-      PaymentHistoryItem[]
-    >([]);
+  ] = useState<
+    PaymentHistoryItem[]
+  >([]);
 
   const [
     loading,
     setLoading,
-  ] =
-    useState(true);
+  ] = useState(true);
 
   const [
     error,
     setError,
-  ] =
-    useState("");
+  ] = useState("");
 
   const [
     downloadingId,
@@ -216,6 +184,11 @@ export function PaymentHistoryPanel({
   ] = useState<
     number | null
   >(null);
+
+  const [
+    showAllOwnerPayments,
+    setShowAllOwnerPayments,
+  ] = useState(false);
 
 
   async function load() {
@@ -232,19 +205,29 @@ export function PaymentHistoryPanel({
     setError("");
 
     try {
-      const path =
-        mode === "OWNER"
-          ? "/owner/payments?limit=8"
-          : `/tenant/homes/${leaseId}/payments`;
+      let path: string;
+
+      if (mode === "OWNER") {
+        path =
+          showAllOwnerPayments
+            ? "/owner/payments?limit=100"
+            : (
+              "/owner/payments" +
+              "?limit=20" +
+              "&payment_status=PAID" +
+              "&recent_days=7"
+            );
+      } else {
+        path =
+          `/tenant/homes/${leaseId}/payments`;
+      }
 
       const data =
         await apiRequest<
           PaymentHistoryItem[]
         >(path);
 
-      setPayments(
-        data,
-      );
+      setPayments(data);
     } catch (err) {
       setError(
         err instanceof Error
@@ -262,6 +245,7 @@ export function PaymentHistoryPanel({
   }, [
     mode,
     leaseId,
+    showAllOwnerPayments,
   ]);
 
 
@@ -284,15 +268,14 @@ export function PaymentHistoryPanel({
   }, [
     mode,
     leaseId,
+    showAllOwnerPayments,
   ]);
 
 
   async function downloadReceipt(
     paymentId: number,
   ) {
-    setDownloadingId(
-      paymentId,
-    );
+    setDownloadingId(paymentId);
 
     try {
       await apiDownload(
@@ -307,39 +290,38 @@ export function PaymentHistoryPanel({
           : "Download failed.",
       );
     } finally {
-      setDownloadingId(
-        null,
-      );
+      setDownloadingId(null);
     }
   }
+
+
+  const ownerRecent =
+    mode === "OWNER" &&
+    !showAllOwnerPayments;
 
 
   return (
     <section
       className="
-        mt-7
-        rounded-[2rem]
-        border
-        border-celestial/10
-        bg-white
-        p-6
+        mt-7 rounded-[2rem]
+        border border-celestial/10
+        bg-white p-6
         dark:border-ash/10
         dark:bg-dark-card
       "
     >
       <div
         className="
-          flex
-          items-start
-          justify-between
-          gap-4
+          flex flex-col gap-4
+          sm:flex-row
+          sm:items-start
+          sm:justify-between
         "
       >
         <div>
           <p
             className="
-              text-xs
-              font-bold
+              text-xs font-bold
               uppercase
               tracking-[0.18em]
               text-celestial
@@ -351,72 +333,104 @@ export function PaymentHistoryPanel({
 
           <h2
             className="
-              mt-1
-              text-xl
+              mt-1 text-xl
               font-semibold
               text-deep-blue
               dark:text-white
             "
           >
-            {mode === "OWNER"
-              ? "Recent payment activity"
-              : "Payment history"}
+            {mode === "TENANT"
+              ? "Payment history"
+              : ownerRecent
+                ? "Recent payment activity"
+                : "Payment history"}
           </h2>
 
           <p
             className="
-              mt-1
-              text-sm
+              mt-1 text-sm
               text-deep-blue/45
               dark:text-white/40
             "
           >
-            {mode === "OWNER"
-              ? "Verified Stripe payments and manually recorded cash payments."
-              : "Your rent payment attempts and verified paid receipts."}
+            {mode === "TENANT"
+              ? "Your rent payment attempts and verified paid receipts."
+              : ownerRecent
+                ? "Paid rent received during the last 7 days."
+                : "Payment attempts across your properties, including older receipts."}
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={load}
-          disabled={loading}
-          title="Refresh payments"
+        <div
           className="
-            grid
-            size-10
-            place-items-center
-            rounded-xl
-            bg-cyan/40
-            text-deep-blue
-            transition
-            hover:bg-cyan/70
-            disabled:opacity-50
-            dark:bg-moss
-            dark:text-lime-soft
+            flex items-center
+            gap-2
           "
         >
-          <RefreshCw
-            size={16}
-            className={
-              loading
-                ? "animate-spin"
-                : ""
-            }
-          />
-        </button>
+          {mode === "OWNER" && (
+            <button
+              type="button"
+              onClick={() =>
+                setShowAllOwnerPayments(
+                  (current) =>
+                    !current,
+                )
+              }
+              className="
+                rounded-xl
+                bg-cyan/40
+                px-4 py-2.5
+                text-xs font-semibold
+                text-deep-blue
+                transition
+                hover:bg-cyan/70
+                dark:bg-moss
+                dark:text-lime-soft
+              "
+            >
+              {showAllOwnerPayments
+                ? "Last 7 days"
+                : "View all"}
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            title="Refresh payments"
+            className="
+              grid size-10
+              place-items-center
+              rounded-xl
+              bg-cyan/40
+              text-deep-blue
+              transition
+              hover:bg-cyan/70
+              disabled:opacity-50
+              dark:bg-moss
+              dark:text-lime-soft
+            "
+          >
+            <RefreshCw
+              size={16}
+              className={
+                loading
+                  ? "animate-spin"
+                  : ""
+              }
+            />
+          </button>
+        </div>
       </div>
 
 
       {error && (
         <div
           className="
-            mt-5
-            rounded-2xl
-            bg-red-50
-            p-4
-            text-sm
-            text-red-600
+            mt-5 rounded-2xl
+            bg-red-50 p-4
+            text-sm text-red-600
             dark:bg-red-400/10
             dark:text-red-300
           "
@@ -431,28 +445,26 @@ export function PaymentHistoryPanel({
         !payments.length && (
         <div
           className="
-            mt-5
-            rounded-2xl
-            border
-            border-dashed
+            mt-5 rounded-2xl
+            border border-dashed
             border-celestial/15
-            p-7
-            text-center
+            p-7 text-center
             text-sm
             text-deep-blue/40
             dark:border-ash/15
             dark:text-white/35
           "
         >
-          No payment activity yet.
+          {ownerRecent
+            ? "No paid rent received in the last 7 days."
+            : "No payment activity yet."}
         </div>
       )}
 
 
       <div
         className="
-          mt-5
-          space-y-3
+          mt-5 space-y-3
         "
       >
         {payments.map(
@@ -469,8 +481,7 @@ export function PaymentHistoryPanel({
                 .join(" ");
 
             const methodLabel =
-              payment
-                .payment_method
+              payment.payment_method
                 === "CASH"
                 ? "Cash"
                 : "Stripe";
@@ -479,8 +490,7 @@ export function PaymentHistoryPanel({
               <article
                 key={payment.id}
                 className="
-                  flex
-                  flex-col
+                  flex flex-col
                   gap-4
                   rounded-[1.4rem]
                   bg-light-canvas
@@ -493,15 +503,13 @@ export function PaymentHistoryPanel({
               >
                 <div
                   className="
-                    flex
-                    items-start
+                    flex items-start
                     gap-3
                   "
                 >
                   <div
                     className="
-                      grid
-                      size-11
+                      grid size-11
                       shrink-0
                       place-items-center
                       rounded-xl
@@ -511,8 +519,7 @@ export function PaymentHistoryPanel({
                       dark:text-lime-soft
                     "
                   >
-                    {payment
-                      .payment_method
+                    {payment.payment_method
                       === "CASH"
                       ? (
                         <Banknote
@@ -529,10 +536,8 @@ export function PaymentHistoryPanel({
                   <div>
                     <div
                       className="
-                        flex
-                        flex-wrap
-                        items-center
-                        gap-2
+                        flex flex-wrap
+                        items-center gap-2
                       "
                     >
                       <p
@@ -555,9 +560,7 @@ export function PaymentHistoryPanel({
                           statusStyle(
                             payment.status,
                           ),
-                        ].join(
-                          " ",
-                        )}
+                        ].join(" ")}
                       >
                         <StatusIcon
                           status={
@@ -565,9 +568,7 @@ export function PaymentHistoryPanel({
                           }
                         />
 
-                        {
-                          payment.status
-                        }
+                        {payment.status}
                       </span>
 
                       <span
@@ -576,11 +577,9 @@ export function PaymentHistoryPanel({
                           bg-white
                           px-2.5 py-1
                           text-[9px]
-                          font-bold
-                          uppercase
+                          font-bold uppercase
                           tracking-[0.12em]
                           text-deep-blue/55
-
                           dark:bg-white/8
                           dark:text-white/50
                         "
@@ -591,8 +590,7 @@ export function PaymentHistoryPanel({
 
                     <p
                       className="
-                        mt-1
-                        text-xs
+                        mt-1 text-xs
                         text-deep-blue/45
                         dark:text-white/40
                       "
@@ -603,12 +601,10 @@ export function PaymentHistoryPanel({
                       )}
                     </p>
 
-                    {mode ===
-                      "OWNER" && (
+                    {mode === "OWNER" && (
                       <p
                         className="
-                          mt-1
-                          text-xs
+                          mt-1 text-xs
                           text-deep-blue/45
                           dark:text-white/40
                         "
@@ -629,21 +625,16 @@ export function PaymentHistoryPanel({
                       </p>
                     )}
 
-                    {payment
-                      .manual_note && (
+                    {payment.manual_note && (
                       <p
                         className="
-                          mt-1
-                          text-xs
+                          mt-1 text-xs
                           italic
                           text-deep-blue/40
                           dark:text-white/35
                         "
                       >
-                        {
-                          payment
-                            .manual_note
-                        }
+                        {payment.manual_note}
                       </p>
                     )}
                   </div>
@@ -651,8 +642,7 @@ export function PaymentHistoryPanel({
 
                 <div
                   className="
-                    flex
-                    shrink-0
+                    flex shrink-0
                     flex-col
                     items-start
                     gap-3
@@ -681,8 +671,7 @@ export function PaymentHistoryPanel({
 
                     <p
                       className="
-                        mt-1
-                        text-xs
+                        mt-1 text-xs
                         text-deep-blue/35
                         dark:text-white/30
                       "
@@ -694,8 +683,7 @@ export function PaymentHistoryPanel({
                     </p>
                   </div>
 
-                  {payment.status ===
-                    "PAID" && (
+                  {payment.status === "PAID" && (
                     <button
                       type="button"
                       disabled={
@@ -709,19 +697,16 @@ export function PaymentHistoryPanel({
                       }
                       className="
                         inline-flex
-                        items-center
-                        gap-2
+                        items-center gap-2
                         rounded-xl
                         bg-celestial
                         px-3 py-2
-                        text-xs
-                        font-semibold
+                        text-xs font-semibold
                         text-white
                         transition
                         hover:bg-cyan
                         hover:text-deep-blue
                         disabled:opacity-50
-
                         dark:bg-moss
                         dark:text-lime-soft
                       "

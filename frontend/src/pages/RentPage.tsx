@@ -621,7 +621,13 @@ function TenantRent() {
         `/tenant/homes/${selectedHome.lease_id}/rent-obligations`,
       );
 
-      setObligations(data);
+      setObligations(
+        data.filter(
+         (item) =>
+           item.status ===
+           "PENDING",
+      ),
+);
     } catch {
       setObligations([]);
     }
@@ -731,8 +737,11 @@ function TenantRent() {
 
       <section className="mt-7">
         <h2 className="text-xl font-semibold text-deep-blue dark:text-white">
-          Rent obligations
+          Unpaid rent
         </h2>
+        <p className="mt-1 text-sm text-deep-blue/45 dark:text-white/40">
+  Only unpaid rent is shown here. Completed payments are kept in your payment history below.
+</p>
 
         <div className="mt-4 space-y-3">
           {obligations.map((item) => (
@@ -771,7 +780,7 @@ function TenantRent() {
 
           {!obligations.length && (
             <div className="rounded-[1.6rem] border border-dashed border-celestial/15 bg-white p-8 text-center text-sm text-deep-blue/40 dark:border-ash/15 dark:bg-dark-card dark:text-white/35">
-              No rent obligations for this home yet.
+              No unpaid rent obligations. Paid rent appears in your payment history below.
             </div>
           )}
         </div>
