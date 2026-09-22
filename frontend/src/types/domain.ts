@@ -109,7 +109,11 @@ export interface Maintenance {
 
 export interface Expense {
   id: number;
-  property_id: number;
+  owner_id: number;
+
+  property_id:
+    | number
+    | null;
 
   unit_id:
     | number
@@ -276,8 +280,13 @@ export interface OwnerMaintenancePage {
 export interface OwnerExpenseItem {
   id: number;
 
-  property_id: number;
-  property_name: string;
+  property_id:
+    | number
+    | null;
+
+  property_name:
+    | string
+    | null;
 
   building_id:
     | number
@@ -437,4 +446,46 @@ export interface TenantRentObligation {
 export interface CheckoutSessionResponse {
   payment_id: number;
   checkout_url: string;
+}
+
+
+export interface FinancialSeriesPoint {
+  label: string;
+
+  rent_collected:
+    | string
+    | number;
+
+  expenses:
+    | string
+    | number;
+}
+
+
+export interface FinancialOverview {
+  start_date: string;
+  end_date: string;
+
+  bucket:
+    | "DAY"
+    | "MONTH";
+
+  rent_collected:
+    | string
+    | number;
+
+  expenses:
+    | string
+    | number;
+
+  net_cash_flow:
+    | string
+    | number;
+
+  outstanding_rent:
+    | string
+    | number;
+
+  series:
+    FinancialSeriesPoint[];
 }

@@ -710,15 +710,31 @@ def list_owner_expenses(
     property_id: int | None = None,
     building_id: int | None = None,
     unit_id: int | None = None,
+    scope: str = Query(
+        "ALL",
+        pattern="^(ALL|PROPERTY|GENERAL)$",
+    ),
 ):
     filters = [
-        Property.owner_id
+        Expense.owner_id
         == owner.id
     ]
 
+    if scope == "PROPERTY":
+        filters.append(
+            Expense.property_id
+            .is_not(None)
+        )
+
+    if scope == "GENERAL":
+        filters.append(
+            Expense.property_id
+            .is_(None)
+        )
+
     if property_id is not None:
         filters.append(
-            Property.id
+            Expense.property_id
             == property_id
         )
 
@@ -730,7 +746,7 @@ def list_owner_expenses(
 
     if unit_id is not None:
         filters.append(
-            Unit.id
+            Expense.unit_id
             == unit_id
         )
 
@@ -740,7 +756,7 @@ def list_owner_expenses(
                 Expense.id
             )
         )
-        .join(
+        .outerjoin(
             Property,
             Expense.property_id
             == Property.id,
@@ -772,7 +788,7 @@ def list_owner_expenses(
             Building,
             Unit,
         )
-        .join(
+        .outerjoin(
             Property,
             Expense.property_id
             == Property.id,
@@ -808,9 +824,13 @@ def list_owner_expenses(
             id=expense.id,
             property_id=(
                 property_record.id
+                if property_record
+                else None
             ),
             property_name=(
                 property_record.name
+                if property_record
+                else None
             ),
             building_id=(
                 building.id
@@ -865,7 +885,6 @@ def list_owner_expenses(
             total,
         ),
     )
-
 
 @router.get(
     "/owner/rent-obligations",

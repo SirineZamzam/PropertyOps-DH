@@ -21,6 +21,7 @@ from app.api.routes import (
     payment_operations,
     resource_management,
     tenant_homes,
+    financials,
 )
 
 
@@ -121,6 +122,12 @@ app.include_router(
     owner_views.router,
     prefix="/api",
     tags=["Owner Views"],
+)
+
+app.include_router(
+    financials.router,
+    prefix="/api",
+    tags=["Financials"],
 )
 
 app.include_router(

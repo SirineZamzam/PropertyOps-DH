@@ -1,15 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import (
-    Date,
-    DateTime,
-    ForeignKey,
-    Numeric,
-    String,
-    Text,
-    func,
-)
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -20,9 +12,15 @@ class Expense(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    property_id: Mapped[int] = mapped_column(
-        ForeignKey("properties.id"),
+    owner_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"),
         nullable=False,
+        index=True,
+    )
+
+    property_id: Mapped[int | None] = mapped_column(
+        ForeignKey("properties.id"),
+        nullable=True,
         index=True,
     )
 

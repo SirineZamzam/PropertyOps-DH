@@ -77,21 +77,14 @@ def get_owned_expense(
     owner_id: int,
     expense_id: int,
 ) -> Expense:
-    statement = (
-        select(Expense)
-        .join(
-            Property,
-            Expense.property_id
-            == Property.id,
-        )
-        .where(
-            Expense.id == expense_id,
-            Property.owner_id
+    expense = db.scalar(
+        select(Expense).where(
+            Expense.id
+            == expense_id,
+            Expense.owner_id
             == owner_id,
         )
     )
-
-    expense = db.scalar(statement)
 
     if expense is None:
         raise HTTPException(
@@ -100,7 +93,6 @@ def get_owned_expense(
         )
 
     return expense
-
 
 def get_owned_obligation(
     db: Session,
@@ -848,6 +840,22 @@ def update_expense(
         )
 
         if (
+            expense.property_id
+            is None
+            and requested_unit_id
+            is not None
+        ):
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_400_BAD_REQUEST
+                ),
+                detail=(
+                    "General expenses cannot "
+                    "be linked to a unit."
+                ),
+            )
+
+        if (
             requested_unit_id
             is not None
         ):
@@ -857,12 +865,10 @@ def update_expense(
                 requested_unit_id,
             )
 
-            building = (
-                get_owned_building(
-                    db,
-                    owner.id,
-                    unit.building_id,
-                )
+            building = get_owned_building(
+                db,
+                owner.id,
+                unit.building_id,
             )
 
             if (
@@ -894,7 +900,6 @@ def update_expense(
     db.refresh(expense)
 
     return expense
-
 
 @router.delete(
     "/expenses/{expense_id}",

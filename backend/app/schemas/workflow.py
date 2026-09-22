@@ -565,8 +565,8 @@ class OwnerMaintenancePage(BaseModel):
 
 class OwnerExpenseItem(BaseModel):
     id: int
-    property_id: int
-    property_name: str
+    property_id: int  | None
+    property_name: str | None
 
     building_id: int | None
     building_name: str | None
