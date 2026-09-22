@@ -25,6 +25,8 @@ import { FormField, controlClass } from "../components/FormField";
 
 import { LocationFields } from "../components/LocationFields";
 
+import { RecordCashPaymentButton, } from "../components/RecordCashPaymentButton";
+
 import { Pagination } from "../components/Pagination";
 
 import { ApiError, apiRequest } from "../lib/api";
@@ -303,6 +305,10 @@ function OwnerRent() {
 
                 {item.status === "PENDING" && (
                   <>
+                    <RecordCashPaymentButton
+                     item={item}
+                      onRecorded={load}
+                    />
                     <button
                       onClick={() => setEditing(item)}
                       className="grid size-9 place-items-center rounded-xl bg-cyan/45 text-deep-blue dark:bg-moss dark:text-lime-soft"
@@ -632,8 +638,8 @@ function TenantRent() {
 
     if (checkout === "success") {
       successAlert(
-        "Payment completed",
-        "Stripe confirmed your checkout. Your rent payment status has been updated securely.",
+        "Checkout completed",
+        "Your payment was submitted successfully. The verified status will update when Stripe confirmation is received.",
       );
 
       load();

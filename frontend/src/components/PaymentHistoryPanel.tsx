@@ -1,8 +1,10 @@
 import {
+  Banknote,
   CheckCircle2,
   CircleX,
   Clock3,
   CreditCard,
+  Download,
   RefreshCw,
 } from "lucide-react";
 
@@ -12,8 +14,13 @@ import {
 } from "react";
 
 import {
+  apiDownload,
   apiRequest,
 } from "../lib/api";
+
+import {
+  errorAlert,
+} from "../lib/alerts";
 
 
 type PaymentStatus =
@@ -22,6 +29,11 @@ type PaymentStatus =
   | "PAID"
   | "FAILED"
   | "EXPIRED";
+
+
+type PaymentMethod =
+  | "STRIPE"
+  | "CASH";
 
 
 interface PaymentHistoryItem {
@@ -37,6 +49,13 @@ interface PaymentHistoryItem {
 
   status:
     PaymentStatus;
+
+  payment_method:
+    PaymentMethod;
+
+  manual_note:
+    | string
+    | null;
 
   due_date: string;
 
@@ -191,6 +210,13 @@ export function PaymentHistoryPanel({
   ] =
     useState("");
 
+  const [
+    downloadingId,
+    setDownloadingId,
+  ] = useState<
+    number | null
+  >(null);
+
 
   async function load() {
     if (
@@ -237,6 +263,55 @@ export function PaymentHistoryPanel({
     mode,
     leaseId,
   ]);
+
+
+  useEffect(() => {
+    function refreshPayments() {
+      void load();
+    }
+
+    window.addEventListener(
+      "propertyops-payment-updated",
+      refreshPayments,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "propertyops-payment-updated",
+        refreshPayments,
+      );
+    };
+  }, [
+    mode,
+    leaseId,
+  ]);
+
+
+  async function downloadReceipt(
+    paymentId: number,
+  ) {
+    setDownloadingId(
+      paymentId,
+    );
+
+    try {
+      await apiDownload(
+        `/payments/${paymentId}/receipt`,
+        `propertyops-receipt-${paymentId}.pdf`,
+      );
+    } catch (error) {
+      await errorAlert(
+        "Unable to download receipt",
+        error instanceof Error
+          ? error.message
+          : "Download failed.",
+      );
+    } finally {
+      setDownloadingId(
+        null,
+      );
+    }
+  }
 
 
   return (
@@ -297,8 +372,8 @@ export function PaymentHistoryPanel({
             "
           >
             {mode === "OWNER"
-              ? "Stripe payment attempts across your properties."
-              : "Your Stripe payment attempts and their verified status."}
+              ? "Verified Stripe payments and manually recorded cash payments."
+              : "Your rent payment attempts and verified paid receipts."}
           </p>
         </div>
 
@@ -393,6 +468,13 @@ export function PaymentHistoryPanel({
                 .filter(Boolean)
                 .join(" ");
 
+            const methodLabel =
+              payment
+                .payment_method
+                === "CASH"
+                ? "Cash"
+                : "Stripe";
+
             return (
               <article
                 key={payment.id}
@@ -429,9 +511,19 @@ export function PaymentHistoryPanel({
                       dark:text-lime-soft
                     "
                   >
-                    <CreditCard
-                      size={18}
-                    />
+                    {payment
+                      .payment_method
+                      === "CASH"
+                      ? (
+                        <Banknote
+                          size={18}
+                        />
+                      )
+                      : (
+                        <CreditCard
+                          size={18}
+                        />
+                      )}
                   </div>
 
                   <div>
@@ -477,6 +569,24 @@ export function PaymentHistoryPanel({
                           payment.status
                         }
                       </span>
+
+                      <span
+                        className="
+                          rounded-full
+                          bg-white
+                          px-2.5 py-1
+                          text-[9px]
+                          font-bold
+                          uppercase
+                          tracking-[0.12em]
+                          text-deep-blue/55
+
+                          dark:bg-white/8
+                          dark:text-white/50
+                        "
+                      >
+                        {methodLabel}
+                      </span>
                     </div>
 
                     <p
@@ -518,42 +628,114 @@ export function PaymentHistoryPanel({
                         }
                       </p>
                     )}
+
+                    {payment
+                      .manual_note && (
+                      <p
+                        className="
+                          mt-1
+                          text-xs
+                          italic
+                          text-deep-blue/40
+                          dark:text-white/35
+                        "
+                      >
+                        {
+                          payment
+                            .manual_note
+                        }
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 <div
                   className="
-                    text-left
-                    sm:text-right
+                    flex
+                    shrink-0
+                    flex-col
+                    items-start
+                    gap-3
+                    sm:items-end
                   "
                 >
-                  <p
+                  <div
                     className="
-                      text-xs
-                      font-semibold
-                      text-deep-blue/50
-                      dark:text-white/45
+                      text-left
+                      sm:text-right
                     "
                   >
-                    {payment.status ===
-                      "PAID"
-                      ? "Paid"
-                      : "Attempted"}
-                  </p>
+                    <p
+                      className="
+                        text-xs
+                        font-semibold
+                        text-deep-blue/50
+                        dark:text-white/45
+                      "
+                    >
+                      {payment.status ===
+                        "PAID"
+                        ? "Paid"
+                        : "Attempted"}
+                    </p>
 
-                  <p
-                    className="
-                      mt-1
-                      text-xs
-                      text-deep-blue/35
-                      dark:text-white/30
-                    "
-                  >
-                    {formatDate(
-                      payment.paid_at ??
-                        payment.created_at,
-                    )}
-                  </p>
+                    <p
+                      className="
+                        mt-1
+                        text-xs
+                        text-deep-blue/35
+                        dark:text-white/30
+                      "
+                    >
+                      {formatDate(
+                        payment.paid_at ??
+                          payment.created_at,
+                      )}
+                    </p>
+                  </div>
+
+                  {payment.status ===
+                    "PAID" && (
+                    <button
+                      type="button"
+                      disabled={
+                        downloadingId
+                        === payment.id
+                      }
+                      onClick={() =>
+                        downloadReceipt(
+                          payment.id,
+                        )
+                      }
+                      className="
+                        inline-flex
+                        items-center
+                        gap-2
+                        rounded-xl
+                        bg-celestial
+                        px-3 py-2
+                        text-xs
+                        font-semibold
+                        text-white
+                        transition
+                        hover:bg-cyan
+                        hover:text-deep-blue
+                        disabled:opacity-50
+
+                        dark:bg-moss
+                        dark:text-lime-soft
+                      "
+                    >
+                      <Download
+                        size={14}
+                      />
+
+                      {downloadingId
+                        === payment.id
+                        ? "Downloading..."
+                        : "Receipt"}
+                    </button>
+                  )}
                 </div>
               </article>
             );

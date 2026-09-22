@@ -7,9 +7,11 @@ from decimal import Decimal
 from pydantic import (
     BaseModel,
     ConfigDict,
+    Field,
 )
 
 from app.models.payment import (
+    PaymentMethod,
     PaymentStatus,
 )
 
@@ -24,6 +26,8 @@ class PaymentRead(BaseModel):
     currency: str
 
     status: PaymentStatus
+    payment_method: PaymentMethod
+    manual_note: str | None
 
     stripe_checkout_session_id: (
         str | None
@@ -49,6 +53,17 @@ class CheckoutSessionResponse(
     checkout_url: str
 
 
+class ManualPaymentCreate(
+    BaseModel
+):
+    paid_date: date | None = None
+
+    note: str | None = Field(
+        default=None,
+        max_length=500,
+    )
+
+
 class TenantPaymentHistoryRead(
     BaseModel
 ):
@@ -58,6 +73,9 @@ class TenantPaymentHistoryRead(
     amount: Decimal
     currency: str
     status: PaymentStatus
+
+    payment_method: PaymentMethod
+    manual_note: str | None
 
     due_date: date
 

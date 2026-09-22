@@ -18,6 +18,7 @@ from app.api.routes import (
     account_profiles,
     ai_analysis,
     owner_views,
+    payment_operations,
     resource_management,
     tenant_homes,
 )
@@ -132,6 +133,12 @@ app.include_router(
     payments.router,
     prefix="/api",
     tags=["Payments"],
+)
+
+app.include_router(
+    payment_operations.router,
+    prefix="/api",
+    tags=["Payment Operations"],
 )
 
 app.include_router(

@@ -30,6 +30,14 @@ class PaymentStatus(
     EXPIRED = "EXPIRED"
 
 
+class PaymentMethod(
+    str,
+    enum.Enum,
+):
+    STRIPE = "STRIPE"
+    CASH = "CASH"
+
+
 class Payment(Base):
     __tablename__ = "payments"
 
@@ -76,6 +84,25 @@ class Payment(Base):
         ),
         nullable=False,
         default=PaymentStatus.PENDING,
+    )
+
+    payment_method: Mapped[
+        PaymentMethod
+    ] = mapped_column(
+        Enum(
+            PaymentMethod,
+            name="payment_method",
+        ),
+        nullable=False,
+        default=PaymentMethod.STRIPE,
+        server_default="STRIPE",
+    )
+
+    manual_note: Mapped[
+        str | None
+    ] = mapped_column(
+        String(500),
+        nullable=True,
     )
 
     stripe_checkout_session_id: Mapped[

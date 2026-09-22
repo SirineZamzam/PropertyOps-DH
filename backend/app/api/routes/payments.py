@@ -154,6 +154,14 @@ def tenant_payment_response(
 
         status=payment.status,
 
+        payment_method=(
+            payment.payment_method
+        ),
+
+        manual_note=(
+            payment.manual_note
+        ),
+
         due_date=(
             obligation.due_date
         ),
@@ -188,6 +196,14 @@ def owner_payment_response(
         currency=payment.currency,
 
         status=payment.status,
+
+        payment_method=(
+            payment.payment_method
+        ),
+
+        manual_note=(
+            payment.manual_note
+        ),
 
         due_date=(
             obligation.due_date

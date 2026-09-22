@@ -114,10 +114,9 @@ function getFastApiErrors(
 }
 
 
-export async function apiRequest<T>(
-  path: string,
+function authHeaders(
   options: RequestInit = {},
-): Promise<T> {
+) {
   const token =
     localStorage.getItem(
       "propertyops_access_token",
@@ -147,36 +146,56 @@ export async function apiRequest<T>(
     );
   }
 
+  return headers;
+}
+
+
+async function throwApiError(
+  response: Response,
+): Promise<never> {
+  let data: unknown;
+
+  try {
+    data =
+      await response.json();
+  } catch {
+    data = null;
+  }
+
+  const {
+    message,
+    fieldErrors,
+  } = getFastApiErrors(
+    data,
+  );
+
+  throw new ApiError(
+    message,
+    response.status,
+    fieldErrors,
+  );
+}
+
+
+export async function apiRequest<T>(
+  path: string,
+  options: RequestInit = {},
+): Promise<T> {
   const response =
     await fetch(
       `${API_URL}${path}`,
       {
         ...options,
-        headers,
+        headers:
+          authHeaders(
+            options,
+          ),
       },
     );
 
   if (!response.ok) {
-    let data: unknown;
-
-    try {
-      data =
-        await response.json();
-    } catch {
-      data = null;
-    }
-
-    const {
-      message,
-      fieldErrors,
-    } = getFastApiErrors(
-      data,
-    );
-
-    throw new ApiError(
-      message,
-      response.status,
-      fieldErrors,
+    return throwApiError(
+      response,
     );
   }
 
@@ -196,4 +215,67 @@ export async function apiRequest<T>(
   return JSON.parse(
     text,
   ) as T;
+}
+
+
+export async function apiDownload(
+  path: string,
+  fallbackFilename: string,
+) {
+  const response =
+    await fetch(
+      `${API_URL}${path}`,
+      {
+        method: "GET",
+        headers:
+          authHeaders(),
+      },
+    );
+
+  if (!response.ok) {
+    return throwApiError(
+      response,
+    );
+  }
+
+  const blob =
+    await response.blob();
+
+  const disposition =
+    response.headers.get(
+      "Content-Disposition",
+    );
+
+  const filenameMatch =
+    disposition?.match(
+      /filename="?([^"]+)"?/i,
+    );
+
+  const filename =
+    filenameMatch?.[1] ??
+    fallbackFilename;
+
+  const objectUrl =
+    URL.createObjectURL(
+      blob,
+    );
+
+  const link =
+    document.createElement(
+      "a",
+    );
+
+  link.href = objectUrl;
+  link.download = filename;
+
+  document.body.appendChild(
+    link,
+  );
+
+  link.click();
+  link.remove();
+
+  URL.revokeObjectURL(
+    objectUrl,
+  );
 }
