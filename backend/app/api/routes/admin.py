@@ -24,7 +24,13 @@ from app.models.lease import (
     Lease,
     LeaseStatus,
 )
+from app.models.owner_subscription import (
+    OwnerSubscription,
+)
 from app.models.property import Property
+from app.models.subscription_plan import (
+    SubscriptionPlan,
+)
 from app.models.unit import Unit
 from app.models.user import (
     User,
@@ -157,6 +163,67 @@ def owner_counts():
         building_count,
         unit_count,
         active_lease_count,
+    )
+
+
+def owner_item_from_values(
+    *,
+    owner: User,
+    property_count: int,
+    building_count: int,
+    unit_count: int,
+    active_lease_count: int,
+    subscription:
+        OwnerSubscription | None,
+    plan:
+        SubscriptionPlan | None,
+) -> AdminOwnerItem:
+    return AdminOwnerItem(
+        id=owner.id,
+        first_name=owner.first_name,
+        last_name=owner.last_name,
+        phone_number=(
+            owner.phone_number
+        ),
+        email=owner.email,
+        is_active=owner.is_active,
+        created_at=owner.created_at,
+        property_count=(
+            property_count
+            or 0
+        ),
+        building_count=(
+            building_count
+            or 0
+        ),
+        unit_count=(
+            unit_count
+            or 0
+        ),
+        active_lease_count=(
+            active_lease_count
+            or 0
+        ),
+        plan_code=(
+            plan.code
+            if plan
+            else None
+        ),
+        plan_name=(
+            plan.name
+            if plan
+            else None
+        ),
+        subscription_status=(
+            subscription.status
+            if subscription
+            else None
+        ),
+        max_properties=(
+            plan.max_properties
+            if plan
+            else None
+        ),
     )
 
 
@@ -345,6 +412,18 @@ def list_admin_owners(
             active_lease_count.label(
                 "active_lease_count"
             ),
+            OwnerSubscription,
+            SubscriptionPlan,
+        )
+        .outerjoin(
+            OwnerSubscription,
+            OwnerSubscription.owner_id
+            == User.id,
+        )
+        .outerjoin(
+            SubscriptionPlan,
+            OwnerSubscription.plan_id
+            == SubscriptionPlan.id,
         )
         .where(
             *filters
@@ -367,24 +446,8 @@ def list_admin_owners(
     ).all()
 
     items = [
-        AdminOwnerItem(
-            id=owner.id,
-            first_name=(
-                owner.first_name
-            ),
-            last_name=(
-                owner.last_name
-            ),
-            phone_number=(
-                owner.phone_number
-            ),
-            email=owner.email,
-            is_active=(
-                owner.is_active
-            ),
-            created_at=(
-                owner.created_at
-            ),
+        owner_item_from_values(
+            owner=owner,
             property_count=(
                 property_total
                 or 0
@@ -401,6 +464,10 @@ def list_admin_owners(
                 lease_total
                 or 0
             ),
+            subscription=(
+                subscription
+            ),
+            plan=plan,
         )
         for (
             owner,
@@ -408,6 +475,8 @@ def list_admin_owners(
             building_total,
             unit_total,
             lease_total,
+            subscription,
+            plan,
         ) in rows
     ]
 
@@ -484,22 +553,39 @@ def update_owner_status(
         )
     ).one()
 
-    return AdminOwnerItem(
-        id=owner.id,
-        first_name=(
-            owner.first_name
-        ),
-        last_name=(
-            owner.last_name
-        ),
-        phone_number=(
-            owner.phone_number
-        ),
-        email=owner.email,
-        is_active=owner.is_active,
-        created_at=(
-            owner.created_at
-        ),
+    subscription_row = (
+        db.execute(
+            select(
+                OwnerSubscription,
+                SubscriptionPlan,
+            )
+            .join(
+                SubscriptionPlan,
+                OwnerSubscription.plan_id
+                == SubscriptionPlan.id,
+            )
+            .where(
+                OwnerSubscription.owner_id
+                == owner.id
+            )
+        )
+        .one_or_none()
+    )
+
+    subscription = (
+        subscription_row[0]
+        if subscription_row
+        else None
+    )
+
+    plan = (
+        subscription_row[1]
+        if subscription_row
+        else None
+    )
+
+    return owner_item_from_values(
+        owner=owner,
         property_count=(
             counts[0]
             or 0
@@ -516,4 +602,8 @@ def update_owner_status(
             counts[3]
             or 0
         ),
+        subscription=(
+            subscription
+        ),
+        plan=plan,
     )

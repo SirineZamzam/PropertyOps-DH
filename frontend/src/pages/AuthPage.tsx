@@ -1,21 +1,8 @@
-import {
-  ArrowLeft,
-  Eye,
-  EyeOff,
-  KeyRound,
-  Mail,
-} from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, KeyRound, Mail } from "lucide-react";
 
-import {
-  useEffect,
-  useState,
-  type FormEvent,
-} from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
-import {
-  useNavigate,
-  useSearchParams,
-} from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 
 import { Brand } from "../components/Brand";
 import { useAuth } from "../contexts/AuthContext";
@@ -53,13 +40,14 @@ export default function AuthPage() {
   const isRegister = mode === "register";
 
   useEffect(() => {
-    if (user) {
-      navigate("/app", {
-        replace: true,
-      });
+    if (!user) {
+      return;
     }
-  }, [user, navigate]);
 
+    navigate(mode === "register" ? "/choose-plan" : "/app", {
+      replace: true,
+    });
+  }, [user, mode, navigate]);
   function changeMode(nextMode: Mode) {
     setMode(nextMode);
     setError("");
@@ -78,21 +66,26 @@ export default function AuthPage() {
     try {
       if (mode === "login") {
         await login(email, password);
-      } else {
-        await register({
-          first_name: firstName,
-          last_name: lastName,
-          phone_number: phone,
-          email,
-          password,
-        });
+
+        navigate("/app");
+
+        return;
       }
 
-      navigate("/app");
+      await register({
+        first_name: firstName,
+
+        last_name: lastName,
+
+        phone_number: phone,
+
+        email,
+        password,
+      });
+
+      navigate("/choose-plan");
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Unable to continue.",
-      );
+      setError(err instanceof Error ? err.message : "Unable to continue.");
     } finally {
       setSubmitting(false);
     }
@@ -270,9 +263,7 @@ export default function AuthPage() {
               setPhone={setPhone}
               setShowPassword={setShowPassword}
               onSubmit={handleSubmit}
-              onSwitch={() =>
-                changeMode(isRegister ? "login" : "register")
-              }
+              onSwitch={() => changeMode(isRegister ? "login" : "register")}
             />
           </div>
         </div>
@@ -351,11 +342,7 @@ function AuthForm({
                 <input
                   required
                   value={firstName}
-                  onChange={(event) =>
-                    setFirstName(
-                      event.target.value,
-                    )
-                  }
+                  onChange={(event) => setFirstName(event.target.value)}
                   placeholder="First name"
                   className="w-full rounded-2xl border border-phthalo/10 bg-[#f6f8f6] px-4 py-3.5 text-sm font-medium text-deep-blue outline-none transition placeholder:text-deep-blue/30 focus:border-celestial/60 focus:ring-4 focus:ring-cyan/15"
                 />
@@ -369,11 +356,7 @@ function AuthForm({
                 <input
                   required
                   value={lastName}
-                  onChange={(event) =>
-                    setLastName(
-                      event.target.value,
-                    )
-                  }
+                  onChange={(event) => setLastName(event.target.value)}
                   placeholder="Last name"
                   className="w-full rounded-2xl border border-phthalo/10 bg-[#f6f8f6] px-4 py-3.5 text-sm font-medium text-deep-blue outline-none transition placeholder:text-deep-blue/30 focus:border-celestial/60 focus:ring-4 focus:ring-cyan/15"
                 />
@@ -388,11 +371,7 @@ function AuthForm({
               <input
                 required
                 value={phone}
-                onChange={(event) =>
-                  setPhone(
-                    event.target.value,
-                  )
-                }
+                onChange={(event) => setPhone(event.target.value)}
                 placeholder="+961..."
                 className="w-full rounded-2xl border border-phthalo/10 bg-[#f6f8f6] px-4 py-3.5 text-sm font-medium text-deep-blue outline-none transition placeholder:text-deep-blue/30 focus:border-celestial/60 focus:ring-4 focus:ring-cyan/15"
               />
@@ -433,9 +412,7 @@ function AuthForm({
               required
               minLength={8}
               value={password}
-              autoComplete={
-                isRegister ? "new-password" : "current-password"
-              }
+              autoComplete={isRegister ? "new-password" : "current-password"}
               onChange={(event) => setPassword(event.target.value)}
               placeholder="Minimum 8 characters"
               className="min-w-0 flex-1 bg-transparent py-3.5 text-sm font-medium text-deep-blue outline-none placeholder:text-deep-blue/30"

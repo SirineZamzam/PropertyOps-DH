@@ -9,6 +9,7 @@ from pydantic import (
 )
 
 from app.models.owner_subscription import (
+    BillingInterval,
     SubscriptionStatus,
 )
 
@@ -134,5 +135,11 @@ class OwnerSubscriptionRead(BaseModel):
     id: int
     owner_id: int
     status: SubscriptionStatus
+    billing_interval: BillingInterval | None
+    current_period_end: datetime | None
+    cancel_at_period_end: bool
+
     property_count: int
+    effective_max_properties: int | None
+
     plan: SubscriptionPlanRead

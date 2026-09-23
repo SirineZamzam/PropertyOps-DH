@@ -20,6 +20,7 @@ from app.schemas.subscription import (
     SubscriptionPlanRead,
 )
 from app.services.subscriptions import (
+    effective_plan_for_limits,
     ensure_default_plans,
     get_owner_subscription,
     property_count_for_owner,
@@ -84,6 +85,14 @@ def owner_subscription(
         owner.id,
     )
 
+    effective_plan = (
+        effective_plan_for_limits(
+            db,
+            subscription,
+            plan,
+        )
+    )
+
     db.commit()
     db.refresh(subscription)
 
@@ -91,11 +100,24 @@ def owner_subscription(
         id=subscription.id,
         owner_id=owner.id,
         status=subscription.status,
+        billing_interval=(
+            subscription.billing_interval
+        ),
+        current_period_end=(
+            subscription.current_period_end
+        ),
+        cancel_at_period_end=(
+            subscription.cancel_at_period_end
+        ),
         property_count=(
             property_count_for_owner(
                 db,
                 owner.id,
             )
+        ),
+        effective_max_properties=(
+            effective_plan
+            .max_properties
         ),
         plan=plan,
     )

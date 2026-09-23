@@ -1,3 +1,8 @@
+import type {
+  SubscriptionStatus,
+} from "./subscription";
+
+
 export interface AdminOverview {
   total_owners: number;
   active_owners: number;
@@ -30,6 +35,22 @@ export interface AdminOwnerItem {
   building_count: number;
   unit_count: number;
   active_lease_count: number;
+
+  plan_code:
+    | string
+    | null;
+
+  plan_name:
+    | string
+    | null;
+
+  subscription_status:
+    | SubscriptionStatus
+    | null;
+
+  max_properties:
+    | number
+    | null;
 }
 
 

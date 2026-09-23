@@ -48,6 +48,7 @@ from app.api.routes import (
     plan_management,
     subscriptions,
     subscription_billing,
+    subscription_admin,
 )
 
 
@@ -159,6 +160,12 @@ app.include_router(
     subscription_billing.router,
     prefix="/api",
     tags=["Subscription Billing"],
+)
+
+app.include_router(
+    subscription_admin.router,
+    prefix="/api",
+    tags=["Subscription Admin"],
 )
 
 app.include_router(

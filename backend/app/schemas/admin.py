@@ -1,6 +1,13 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr
+from pydantic import (
+    BaseModel,
+    EmailStr,
+)
+
+from app.models.owner_subscription import (
+    SubscriptionStatus,
+)
 
 
 class AdminPageMeta(BaseModel):
@@ -33,6 +40,11 @@ class AdminOwnerItem(BaseModel):
     building_count: int
     unit_count: int
     active_lease_count: int
+
+    plan_code: str | None
+    plan_name: str | None
+    subscription_status: SubscriptionStatus | None
+    max_properties: int | None
 
 
 class AdminOwnerPage(BaseModel):

@@ -99,8 +99,7 @@ export default function AdminOwnersPage() {
     }
 
     if (
-      statusFilter ===
-      "ACTIVE"
+      statusFilter === "ACTIVE"
     ) {
       params.set(
         "active",
@@ -109,8 +108,7 @@ export default function AdminOwnersPage() {
     }
 
     if (
-      statusFilter ===
-      "INACTIVE"
+      statusFilter === "INACTIVE"
     ) {
       params.set(
         "active",
@@ -179,7 +177,7 @@ export default function AdminOwnersPage() {
         text:
           nextActive
             ? "The owner will be able to sign in again."
-            : "The owner will be blocked from signing in. Their properties, tenants, leases, payments, and history will remain stored.",
+            : "The owner will be blocked from signing in. Their properties, tenants, leases, payments, and history remain stored.",
 
         confirmText:
           nextActive
@@ -215,11 +213,11 @@ export default function AdminOwnersPage() {
       );
 
       await load();
-    } catch (error) {
+    } catch (actionError) {
       await errorAlert(
         "Unable to update owner",
-        error instanceof Error
-          ? error.message
+        actionError instanceof Error
+          ? actionError.message
           : "Request failed.",
       );
     }
@@ -245,7 +243,7 @@ export default function AdminOwnersPage() {
         </h1>
 
         <p className="mt-2 text-sm text-deep-blue/50 dark:text-white/45">
-          View owner accounts, portfolio size, and account access status.
+          Review owner access, portfolio size, plan, subscription state, and property usage.
         </p>
       </div>
 
@@ -265,8 +263,7 @@ export default function AdminOwnersPage() {
                   event,
                 ) => {
                   setSearch(
-                    event.target
-                      .value,
+                    event.target.value,
                   );
                   setPage(1);
                 }}
@@ -334,37 +331,16 @@ export default function AdminOwnersPage() {
 
       <div className="mt-6 overflow-hidden rounded-[2rem] border border-celestial/10 bg-white dark:border-ash/10 dark:bg-dark-card">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1050px] border-collapse">
+          <table className="w-full min-w-[1220px] border-collapse">
             <thead>
               <tr className="border-b border-celestial/10 bg-cyan/20 text-left dark:border-ash/10 dark:bg-moss/45">
-                <Head>
-                  Owner
-                </Head>
-
-                <Head>
-                  Contact
-                </Head>
-
-                <Head>
-                  Properties
-                </Head>
-
-                <Head>
-                  Buildings
-                </Head>
-
-                <Head>
-                  Units
-                </Head>
-
-                <Head>
-                  Active leases
-                </Head>
-
-                <Head>
-                  Status
-                </Head>
-
+                <Head>Owner</Head>
+                <Head>Contact</Head>
+                <Head>Plan</Head>
+                <Head>Usage</Head>
+                <Head>Portfolio</Head>
+                <Head>Subscription</Head>
+                <Head>Account</Head>
                 <Head align="right">
                   Action
                 </Head>
@@ -381,6 +357,14 @@ export default function AdminOwnersPage() {
                     ]
                       .filter(Boolean)
                       .join(" ");
+
+                  const usage =
+                    owner.max_properties
+                    === null
+                      ? `${owner.property_count} / Unlimited`
+                      : owner.max_properties
+                        ? `${owner.property_count} / ${owner.max_properties}`
+                        : `${owner.property_count}`;
 
                   return (
                     <tr
@@ -414,49 +398,49 @@ export default function AdminOwnersPage() {
                       <td className="px-5 py-4">
                         <div className="space-y-1.5 text-xs text-deep-blue/50 dark:text-white/45">
                           <p className="flex items-center gap-2">
-                            <Mail
-                              size={13}
-                            />
-                            {
-                              owner.email
-                            }
+                            <Mail size={13} />
+                            {owner.email}
                           </p>
 
                           <p className="flex items-center gap-2">
-                            <Phone
-                              size={13}
-                            />
-                            {
-                              owner.phone_number ??
-                              "No phone"
-                            }
+                            <Phone size={13} />
+                            {owner.phone_number ??
+                              "No phone"}
                           </p>
                         </div>
                       </td>
 
-                      <CountCell
-                        value={
-                          owner.property_count
-                        }
-                      />
+                      <td className="px-5 py-4">
+                        <p className="font-semibold text-deep-blue dark:text-white">
+                          {owner.plan_name ??
+                            "—"}
+                        </p>
 
-                      <CountCell
-                        value={
-                          owner.building_count
-                        }
-                      />
+                        <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.1em] text-celestial dark:text-ash">
+                          {owner.plan_code ??
+                            "NO PLAN"}
+                        </p>
+                      </td>
 
-                      <CountCell
-                        value={
-                          owner.unit_count
-                        }
-                      />
+                      <td className="px-5 py-4 text-sm font-semibold text-deep-blue dark:text-white">
+                        {usage}
+                      </td>
 
-                      <CountCell
-                        value={
-                          owner.active_lease_count
-                        }
-                      />
+                      <td className="px-5 py-4 text-xs text-deep-blue/50 dark:text-white/45">
+                        <p>
+                          {owner.building_count} buildings
+                        </p>
+                        <p className="mt-1">
+                          {owner.unit_count} units · {owner.active_lease_count} active leases
+                        </p>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <span className="rounded-full bg-cyan/35 px-3 py-1 text-[9px] font-bold uppercase tracking-[0.11em] text-deep-blue dark:bg-moss dark:text-lime-soft">
+                          {owner.subscription_status ??
+                            "—"}
+                        </span>
+                      </td>
 
                       <td className="px-5 py-4">
                         <span
@@ -465,9 +449,7 @@ export default function AdminOwnersPage() {
                             owner.is_active
                               ? "bg-moss/10 text-moss dark:bg-lime-soft/10 dark:text-lime-soft"
                               : "bg-red-50 text-red-600 dark:bg-red-400/10 dark:text-red-300",
-                          ].join(
-                            " ",
-                          )}
+                          ].join(" ")}
                         >
                           {owner.is_active
                             ? "Active"
@@ -488,9 +470,7 @@ export default function AdminOwnersPage() {
                             owner.is_active
                               ? "text-red-600 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-400/10"
                               : "bg-cyan/40 text-deep-blue hover:bg-cyan dark:bg-moss dark:text-lime-soft",
-                          ].join(
-                            " ",
-                          )}
+                          ].join(" ")}
                         >
                           {owner.is_active
                             ? (
@@ -568,18 +548,5 @@ function Head({
     >
       {children}
     </th>
-  );
-}
-
-
-function CountCell({
-  value,
-}: {
-  value: number;
-}) {
-  return (
-    <td className="px-5 py-4 text-sm font-semibold text-deep-blue dark:text-white">
-      {value}
-    </td>
   );
 }
