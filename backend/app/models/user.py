@@ -18,6 +18,7 @@ from app.db.base import Base
 
 
 class UserRole(str, enum.Enum):
+    ADMIN = "ADMIN"
     OWNER = "OWNER"
     TENANT = "TENANT"
 

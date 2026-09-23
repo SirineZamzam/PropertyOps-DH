@@ -4,11 +4,21 @@ import {
   Routes,
 } from "react-router";
 
-import { AppShell } from "./components/AppShell";
-import { ProtectedRoute } from "./components/ProtectedRoute";
-import { RoleRoute } from "./components/RoleRoute";
+import {
+  AppShell,
+} from "./components/AppShell";
 
-import { useAuth } from "./contexts/AuthContext";
+import {
+  ProtectedRoute,
+} from "./components/ProtectedRoute";
+
+import {
+  RoleRoute,
+} from "./components/RoleRoute";
+
+import {
+  useAuth,
+} from "./contexts/AuthContext";
 
 import {
   TenantHomeProvider,
@@ -18,6 +28,9 @@ import AuthPage from "./pages/AuthPage";
 import LandingPage from "./pages/LandingPage";
 import NotFoundPage from "./pages/NotFoundPage";
 
+import AdminOverviewPage from "./pages/AdminOverviewPage";
+import AdminOwnersPage from "./pages/AdminOwnersPage";
+
 import OwnerOverviewPage from "./pages/OwnerOverviewPage";
 import PropertiesPage from "./pages/PropertiesPage";
 import PropertyDetailsPage from "./pages/PropertyDetailsPage";
@@ -26,13 +39,13 @@ import MaintenancePage from "./pages/MaintenancePage";
 import ExpensesPage from "./pages/ExpensesPage";
 import RentPage from "./pages/RentPage";
 import TenantHomePage from "./pages/TenantHomePage";
-
 import SettingsPage from "./pages/SettingsPage";
 
 
 function WorkspaceRedirect() {
-  const { user } =
-    useAuth();
+  const {
+    user,
+  } = useAuth();
 
   if (!user) {
     return (
@@ -43,13 +56,31 @@ function WorkspaceRedirect() {
     );
   }
 
+  if (
+    user.role === "ADMIN"
+  ) {
+    return (
+      <Navigate
+        to="/app/admin/overview"
+        replace
+      />
+    );
+  }
+
+  if (
+    user.role === "OWNER"
+  ) {
+    return (
+      <Navigate
+        to="/app/overview"
+        replace
+      />
+    );
+  }
+
   return (
     <Navigate
-      to={
-        user.role === "OWNER"
-          ? "/app/overview"
-          : "/app/home"
-      }
+      to="/app/home"
       replace
     />
   );
@@ -61,12 +92,16 @@ export default function App() {
     <Routes>
       <Route
         path="/"
-        element={<LandingPage />}
+        element={
+          <LandingPage />
+        }
       />
 
       <Route
         path="/auth"
-        element={<AuthPage />}
+        element={
+          <AuthPage />
+        }
       />
 
       <Route
@@ -83,6 +118,24 @@ export default function App() {
           index
           element={
             <WorkspaceRedirect />
+          }
+        />
+
+        <Route
+          path="admin/overview"
+          element={
+            <RoleRoute role="ADMIN">
+              <AdminOverviewPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="admin/owners"
+          element={
+            <RoleRoute role="ADMIN">
+              <AdminOwnersPage />
+            </RoleRoute>
           }
         />
 
@@ -140,7 +193,9 @@ export default function App() {
 
         <Route
           path="rent"
-          element={<RentPage />}
+          element={
+            <RentPage />
+          }
         />
 
         <Route
@@ -162,7 +217,9 @@ export default function App() {
 
       <Route
         path="*"
-        element={<NotFoundPage />}
+        element={
+          <NotFoundPage />
+        }
       />
     </Routes>
   );

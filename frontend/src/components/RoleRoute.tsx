@@ -2,12 +2,32 @@ import type {
   ReactNode,
 } from "react";
 
-import { Navigate } from "react-router";
+import {
+  Navigate,
+} from "react-router";
 
-import { useAuth } from "../contexts/AuthContext";
+import {
+  useAuth,
+} from "../contexts/AuthContext";
+
 import type {
   UserRole,
 } from "../types/auth";
+
+
+function homeForRole(
+  role: UserRole,
+) {
+  if (role === "ADMIN") {
+    return "/app/admin/overview";
+  }
+
+  if (role === "OWNER") {
+    return "/app/overview";
+  }
+
+  return "/app/home";
+}
 
 
 export function RoleRoute({
@@ -39,9 +59,9 @@ export function RoleRoute({
     return (
       <Navigate
         to={
-          user.role === "OWNER"
-            ? "/app/overview"
-            : "/app/home"
+          homeForRole(
+            user.role,
+          )
         }
         replace
       />
