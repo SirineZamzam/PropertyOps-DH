@@ -752,9 +752,14 @@ def handle_subscription_event(
                 )
             )
 
-        subscription.status = (
-            SubscriptionStatus.INCOMPLETE
-        )
+        if subscription.status not in {
+             SubscriptionStatus.ACTIVE,
+             SubscriptionStatus.PAST_DUE,
+             SubscriptionStatus.CANCELED, 
+           }:
+               subscription.status = (
+                  SubscriptionStatus.INCOMPLETE
+                )
 
         return True
 

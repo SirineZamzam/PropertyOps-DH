@@ -1,12 +1,6 @@
 # PropertyOps Architecture
 
-This document describes the system design, trust boundaries, domain model, payment workflow, AI workflow, security decisions, and engineering tradeoffs behind PropertyOps.
-
-## Architectural Style
-
-PropertyOps is a **modular monolith**. The frontend and backend are deployed separately, while the backend remains one FastAPI application organized into clear modules for routes, authentication, models, schemas, services, persistence, and integrations.
-
-This approach keeps deployment simple while preserving separation of concerns and a clear path for future scaling.
+PropertyOps is a production-style modular monolith for property operations.
 
 ## Runtime Topology
 
@@ -15,68 +9,81 @@ Browser
   |
   | HTTPS
   v
-React / Vite frontend on Vercel
+React / Vite on Vercel
   |
   | REST + JWT
   v
-FastAPI backend on Render
+FastAPI on Render
   |
   +--> Neon PostgreSQL
-  +--> Stripe Checkout / Webhooks
+  +--> Stripe Checkout / Subscriptions
   +--> Gemini API
 ```
 
 ## Trust Boundaries
 
-The frontend is never treated as a security boundary. Authorization is enforced on the backend for every sensitive operation.
+The frontend is not a security boundary. The backend validates:
 
-The backend validates:
-
-- Authenticated user identity
-- OWNER vs TENANT role
-- Property ownership
-- Building-to-property membership
-- Unit-to-building membership
-- Lease-to-tenant ownership
-- Lease-to-unit membership
-- Maintenance scope
-- Expense scope
-- Rent obligation scope
-- Payment scope
+- authenticated identity
+- `ADMIN`, `OWNER`, and `TENANT` roles
+- property ownership
+- building/property consistency
+- unit/building consistency
+- lease/tenant scope
+- maintenance scope
+- expense scope
+- rent-obligation/payment scope
+- subscription ownership
+- admin-only plan/subscription access
 - AI property/unit scope
 
-## Core Domain Model
+## Core Domain
 
 ```text
 User
  |
+ +-- ADMIN
+ |
  +-- OWNER
+ |    |
+ |    +-- OwnerSubscription
+ |    |      |
+ |    |      +-- SubscriptionPlan
+ |    |      +-- SubscriptionPayment
+ |    |
+ |    +-- Property
+ |          |
+ |          +-- Building
+ |                |
+ |                +-- Unit
+ |                      |
+ |                      +-- Lease
+ |                            |
+ |                            +-- TENANT
+ |                            +-- RentObligation
+ |                                  |
+ |                                  +-- Payment
  |
  +-- TENANT
-
-OWNER
- |
- +-- Property
-      |
-      +-- Building
-           |
-           +-- Unit
-                |
-                +-- Lease
-                     |
-                     +-- TENANT
-                     +-- RentObligation
-                          |
-                          +-- Payment
 ```
 
-Operational entities include `Maintenance`, `Expense`, `StripeEvent`, `AIAnalysisJob`, `AIInsight`, and `AIInsightEvidence`.
+Operational entities also include `Maintenance`, `Expense`, `StripeEvent`, `AIAnalysisJob`, `AIInsight`, and `AIInsightEvidence`.
 
-## Lease Design
+## Authentication and Roles
 
-Tenancy is modeled through `Lease` instead of storing a tenant directly on a unit. This preserves history, supports tenant movement between units, and keeps occupancy rules explicit.
+Authentication uses JWTs and hashed passwords.
+
+Public registration creates owners only. Tenants are provisioned by owners. Admin accounts are provisioned separately.
+
+Inactive users are rejected by the shared authentication dependency.
+
+## Lease and Rent Scheduling
+
+Tenancy is modeled through `Lease`, preserving history and making occupancy explicit.
 
 The system enforces one active lease per unit.
+
+Lease creation generates calendar-month rent obligations using the lease start day as the anchor. Short months clamp to their final day. Ending or shortening a lease cancels only applicable future pending obligations.
 
 ## Maintenance Workflow
 
@@ -84,54 +91,126 @@ The system enforces one active lease per unit.
 OPEN -> ASSIGNED -> IN_PROGRESS -> RESOLVED
 ```
 
-Tenants create OPEN requests for their own unit. Owners control subsequent transitions. Invalid transitions are rejected by backend business logic.
+Tenants create `OPEN` requests for their unit. Owners control later transitions.
 
-## Expense Model
+## Expenses and Financials
 
-Expenses belong to a property and may optionally reference a unit and/or maintenance record. Cross-property references are rejected to prevent inconsistent data.
-
-## Payment Architecture
-
-The browser redirect after Stripe Checkout is not authoritative. A payment becomes PAID only after a verified Stripe webhook is processed.
+Expenses have an explicit owner.
 
 ```text
-Tenant starts checkout
-  |
-  v
-Backend creates Payment(PENDING)
-  |
-  v
-Stripe Checkout Session created
+Property expense:
+owner_id = owner
+property_id = property
+unit_id = optional
+
+General expense:
+owner_id = owner
+property_id = NULL
+unit_id = NULL
+maintenance_id = NULL
+```
+
+Owner financial reporting aggregates:
+
+- paid rent by `paid_at`
+- property and general expenses by `expense_date`
+- net cash flow
+- pending rent obligations
+- daily or monthly chart buckets
+
+## Rent Payment Architecture
+
+Browser redirects never establish payment truth.
+
+```text
+Tenant starts Checkout
   |
   v
 Payment -> PROCESSING
   |
   v
-Stripe checkout completed
+Stripe checkout.session.completed
   |
   v
-Signed checkout.session.completed webhook
-  |
-  v
-Verify signature + event idempotency
-  |
-  v
-Verify session + amount + currency + payment status
+Signature verification
+Event idempotency
+Session/amount/currency validation
   |
   v
 Payment -> PAID
 RentObligation -> PAID
 ```
 
-Stripe event IDs are persisted to make duplicate webhook deliveries safe.
+Owners can also record cash rent payments. Paid rent can generate a PDF receipt.
+
+## Subscription Billing Architecture
+
+Rent and owner subscriptions reuse one Stripe account and one signed webhook endpoint.
+
+```text
+Rent:
+Checkout mode=payment
+metadata.flow=RENT
+
+Owner subscription:
+Checkout mode=subscription
+metadata.flow=SUBSCRIPTION
+```
+
+Subscription states:
+
+```text
+FREE
+INCOMPLETE
+ACTIVE
+PAST_DUE
+CANCELED
+```
+
+Paid property limits are effective only when the paid subscription is `ACTIVE`.
+
+```text
+FREE                 -> Free limit
+INCOMPLETE paid plan -> Free limit
+ACTIVE paid plan     -> Paid-plan limit
+PAST_DUE paid plan   -> Free limit
+CANCELED paid plan   -> Free limit
+```
+
+Existing properties are never deleted when an allowance decreases.
+
+Recurring Stripe invoice outcomes are stored as `SubscriptionPayment` records.
+
+Relevant subscription events include:
+
+- `checkout.session.completed`
+- `customer.subscription.created`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+- `invoice.paid`
+- `invoice.payment_failed`
+
+Stripe event IDs are persisted once through the shared `StripeEvent` table.
+
+## Plan Management
+
+Default plans:
+
+```text
+FREE      2 properties
+STANDARD 10 properties
+PRO      unlimited
+```
+
+Admins can manage pricing, limits, display order, and availability.
 
 ## AI Architecture
 
-The AI feature is operational intelligence, not a standalone chatbot.
+The AI feature provides operational intelligence rather than a standalone chatbot.
 
-Owners can request analysis for a property or unit. The backend verifies authorization, collects bounded maintenance/expense history, and sends only that operational context to Gemini.
+For an authorized property or unit, the backend collects bounded maintenance and expense context and sends it to Gemini.
 
-Gemini returns structured output:
+Structured output contains:
 
 ```text
 finding
@@ -141,89 +220,69 @@ explanation
 evidence[]
 ```
 
-Qualification is restricted to `LOW`, `MEDIUM`, or `HIGH`. Evidence is restricted to `MAINTENANCE` and `EXPENSE` records.
-
-Every returned evidence ID is validated against the exact context supplied to the model before persistence. This prevents hallucinated or cross-scope evidence from being saved.
+Evidence is restricted to supplied maintenance and expense records, and every evidence ID is validated before persistence.
 
 ## AI Reliability Controls
 
-- Structured Pydantic response schema
-- Low-temperature generation
-- Output token limit
-- Provider timeout
-- Request rate limiting
-- Duplicate-running-job protection
-- Maximum lookback period
-- Maximum records per type
-- Evidence ID/type validation
-- Property/unit scope validation
-- Graceful FAILED job state
-- Disabled automatic function calling
+- structured Pydantic output
+- output-token limit
+- provider timeout
+- request rate limiting
+- duplicate-running-job protection
+- bounded lookback and record counts
+- evidence ID/type validation
+- property/unit scope validation
+- failed-job state
+- disabled automatic function calling
 
-## Background Processing
-
-AI jobs use FastAPI `BackgroundTasks`. This is appropriate for the current project scope and avoids a separate queue/worker service.
-
-Tradeoff: `BackgroundTasks` is process-local. A process restart can interrupt an in-flight job. A larger production system would use a durable queue and dedicated worker.
-
-## Authentication
-
-Authentication uses JWTs. Passwords are stored as hashes. OWNER/TENANT authorization is enforced independently of frontend routing.
+AI jobs currently use FastAPI `BackgroundTasks`. A larger system would use a durable queue.
 
 ## Database and Migrations
 
-PostgreSQL is the source of truth. SQLAlchemy models the domain and Alembic manages schema migrations.
+PostgreSQL is the source of truth. SQLAlchemy maps the domain and Alembic manages schema changes.
 
-Production startup runs:
+Production starts with:
 
 ```text
 alembic upgrade head
 ```
 
-before Uvicorn starts.
+before Uvicorn.
 
-## CI Strategy
+## CI and Testing
 
-Backend CI runs PostgreSQL 17, Python 3.13, dependency installation, source compilation, Alembic migrations, and the full Pytest suite.
+Backend CI uses PostgreSQL 17 and Python 3.13, compiles source, applies all migrations, and runs the full Pytest suite.
 
-Frontend CI runs Node.js 24, `npm ci`, Oxlint, and a production Vite build.
+Frontend CI uses Node.js 24, `npm ci`, Oxlint, and a Vite production build.
 
-The live Gemini evaluation suite is deliberately excluded from CI so CI does not depend on provider availability, secrets, cost, or nondeterministic model behavior.
-
-## Testing Strategy
-
-The backend regression suite contains 53 tests covering authentication, authorization, leases, maintenance, expenses, rent obligations, payments, AI routing, AI persistence, evidence validation, rate limiting, provider failures, and timeouts.
-
-Production regression additionally verifies Vercel SPA routing, Render health, Neon persistence, Stripe Checkout/webhooks, AI analysis, and responsive UX.
+Live Gemini evaluation is deliberately separate from deterministic CI.
 
 ## Security Decisions
 
-- Secrets stored in environment variables
-- Real `.env` files ignored by Git
-- Public registration creates owners only
-- Tenants are owner-provisioned
-- Cross-owner and cross-tenant access rejected server-side
-- Stripe webhook signatures required
-- Browser redirect never marks a payment as paid
-- Payment session/amount/currency validated
-- AI evidence validated before persistence
-- AI context deliberately minimized
+- secrets live in environment variables
+- `.env` files are ignored
+- public registration cannot create admins
+- role/resource authorization is server-side
+- cross-owner and cross-tenant access is rejected
+- account suspension is non-destructive
+- plan limits are enforced by the backend
+- Stripe signatures are required
+- browser redirects are non-authoritative
+- Stripe event idempotency is persisted
+- rent amount/currency/session are validated
+- AI context and evidence are validated
 
 ## Explicitly Out of Scope
 
-- Multi-organization tenancy
-- Vendor subsystem
-- Subscription billing
-- Refund workflows
-- Multi-currency
-- Complex tax logic
-- Automated lease renewal
-- Vector databases
-- RAG
+- multi-organization teams
+- vendor subsystem
+- live-mode/real-money billing
+- refunds
+- multi-currency accounting
+- complex tax handling
+- automated lease renewal
+- durable distributed workers
+- vector databases / RAG
 - AI agents
-- Microservices
+- microservices
 - Kubernetes
-
-## Future Evolution
-
-Likely next steps at larger scale include a durable worker queue, audit log, notifications, object storage, owner teams, payment reconciliation tools, staging, centralized observability, and backup/restore procedures.

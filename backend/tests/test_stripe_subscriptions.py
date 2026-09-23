@@ -433,3 +433,57 @@ def test_subscription_deleted_marks_canceled(
         subscription.status
         == SubscriptionStatus.CANCELED
     )
+
+def test_late_checkout_event_does_not_downgrade_active_subscription(
+    db,
+):
+    owner, subscription = (
+        make_owner(db)
+    )
+
+    plan = paid_plan(db)
+
+    subscription.plan_id = (
+        plan.id
+    )
+    subscription.status = (
+        SubscriptionStatus.ACTIVE
+    )
+    subscription.stripe_subscription_id = (
+        "sub_out_of_order"
+    )
+
+    db.commit()
+
+    handled = handle_subscription_event(
+        db=db,
+        event_type=(
+            "checkout.session.completed"
+        ),
+        event_object={
+            "metadata": {
+                "flow":
+                    "SUBSCRIPTION",
+                "owner_id":
+                    str(owner.id),
+                "plan_id":
+                    str(plan.id),
+                "billing_interval":
+                    "MONTHLY",
+            },
+            "customer":
+                "cus_out_of_order",
+            "subscription":
+                "sub_out_of_order",
+        },
+    )
+
+    db.commit()
+    db.refresh(subscription)
+
+    assert handled is True
+
+    assert (
+        subscription.status
+        == SubscriptionStatus.ACTIVE
+    )

@@ -1,297 +1,116 @@
 # PropertyOps
 
-**AI-powered property operations platform for owners and tenants.**
+**Production-style property operations platform with verified payments, recurring subscriptions, and evidence-grounded AI insights.**
 
-PropertyOps is a production-style full-stack application for managing rental property operations from one place. It combines portfolio management, tenant and lease workflows, maintenance tracking, expenses, rent obligations, Stripe payments, and evidence-grounded AI operational intelligence.
+PropertyOps is a full-stack application for rental property owners, tenants, and a platform administrator. It combines portfolio management, tenants and leases, automated rent schedules, maintenance, expenses and financial reporting, rent payments, recurring subscription billing, PDF receipts, and structured AI operational intelligence.
 
-The system is built as a modular monolith with strict server-side authorization, verified Stripe webhooks, structured AI output, PostgreSQL persistence, automated testing, CI, and production deployment.
+The system is implemented as a modular monolith with strict backend authorization, PostgreSQL persistence, signed Stripe webhooks, event idempotency, automated testing, CI, and production deployment.
 
 ## Live Application
 
-**Frontend:** https://propertyops-sz.vercel.app
+- **Frontend:** https://propertyops-sz.vercel.app
+- **Backend health:** https://propertyops-api-1du2.onrender.com/health
+- **API documentation:** https://propertyops-api-1du2.onrender.com/docs
 
-**Backend health:** https://propertyops-api-1du2.onrender.com/health
-
-**API documentation:** https://propertyops-api-1du2.onrender.com/docs
-
-> Stripe is integrated in test mode. The live application is intended for demonstration and evaluation.
+> Stripe runs in test mode. The deployed application is intended for demonstration and evaluation.
 
 ## Highlights
 
-- Role-based workflows for **OWNER** and **TENANT**
+- `ADMIN`, `OWNER`, and `TENANT` roles
 - Owner-isolated Property → Building → Unit hierarchy
 - Tenant provisioning and historical lease management
-- One active lease per unit
+- Automatic monthly rent obligations from lease terms
 - Maintenance workflow with enforced transitions
-- Property expenses with optional unit/maintenance linkage
-- Rent obligations and verified payment history
-- Real Stripe Checkout in test mode
+- Property expenses plus owner-level general operating expenses
+- Financial overview: rent collected, expenses, net cash flow, outstanding rent
+- Stripe Checkout for tenant rent payments
+- Owner-recorded cash rent payments
+- Downloadable PDF rent receipts
+- FREE / STANDARD / PRO owner plans
+- Stripe recurring owner subscriptions
+- Backend-enforced property limits
+- Admin owner, plan, subscription, and subscription-payment views
 - Signed Stripe webhook verification and event idempotency
-- Property- and unit-scoped AI analysis
-- Structured Gemini output with validated evidence
-- AI rate limiting, timeouts, bounded context, and failure handling
-- PostgreSQL with SQLAlchemy and Alembic migrations
-- 53 backend regression tests
-- Frontend lint/build validation
+- Property- and unit-scoped Gemini analysis with validated evidence
+- PostgreSQL + SQLAlchemy + Alembic
 - GitHub Actions CI
-- Production deployment with Vercel, Render, Neon, Stripe, and Gemini
+- Vercel + Render + Neon deployment
 
 ## Technology Stack
 
 ### Frontend
-
-- React
-- TypeScript
-- Vite
-- Tailwind CSS
-- React Router
-- Recharts
-- Lucide React
-- SweetAlert2
-- Oxlint
+React, TypeScript, Vite, Tailwind CSS, React Router, Recharts, Lucide React, SweetAlert2, Oxlint.
 
 ### Backend
-
-- Python 3.13
-- FastAPI
-- SQLAlchemy 2
-- Pydantic 2
-- Alembic
-- PostgreSQL
-- JWT authentication
-- Argon2 password hashing
-- Stripe SDK
-- Google Gen AI SDK
+Python 3.13, FastAPI, SQLAlchemy 2, Pydantic 2, Alembic, PostgreSQL, JWT, Argon2, Stripe SDK, ReportLab, Google Gen AI SDK.
 
 ### Production Services
+Vercel, Render, Neon, Stripe test mode, Gemini, GitHub Actions.
 
-- **Vercel** — frontend hosting
-- **Render** — FastAPI backend hosting
-- **Neon** — managed PostgreSQL
-- **Stripe** — Checkout and signed webhook processing
-- **Gemini** — operational intelligence
-- **GitHub Actions** — continuous integration
+## Roles
 
-## System Overview
+### Admin
+Admins can review platform owner usage, deactivate/reactivate owner access, manage plans, review subscriptions, and review recurring subscription payments.
 
-```text
-Browser
-  |
-  v
-React / Vite frontend
-  |
-  | HTTPS + JWT
-  v
-FastAPI API on Render
-  |
-  +---------------------> Neon PostgreSQL
-  |
-  +---------------------> Stripe Checkout
-  |                         |
-  |                         v
-  |                    Signed webhook
-  |                         |
-  |<------------------------+
-  |
-  +---------------------> Gemini API
-                            |
-                            v
-                    Structured AI result
-                            |
-                            v
-                  Validation + persistence
-```
-
-Authorization and business rules are enforced in the backend. The frontend is responsible for presentation and interaction, while ownership, tenancy, workflow transitions, payment verification, and AI evidence validation remain server-side concerns.
-
-For deeper design details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-## Core Domain
-
-```text
-Owner
-  |
-  +-- Property
-        |
-        +-- Building
-              |
-              +-- Unit
-                    |
-                    +-- Lease
-                          |
-                          +-- Tenant
-                          +-- Rent Obligations
-```
-
-Operational records include:
-
-- Maintenance
-- Expenses
-- Payments
-- AI analysis jobs
-- AI insights
-- AI evidence references
-
-Tenants are linked to units through leases rather than directly from the user record. This preserves lease history and keeps occupancy rules explicit.
-
-## User Roles
+Admin accounts are provisioned separately; public registration cannot create an admin.
 
 ### Owner
-
-Owners can:
-
-- Manage properties, buildings, and units
-- Provision tenant accounts
-- Create and manage leases
-- Track maintenance
-- Move maintenance through valid workflow states
-- Record expenses
-- Create rent obligations
-- Review payment activity
-- Request property- or unit-level AI analysis
-- Inspect AI findings and supporting evidence
-
-Owner data is isolated by portfolio.
+Owners can manage properties/buildings/units, tenants, leases, maintenance, expenses, financial reporting, rent obligations and payments, cash payments, PDF receipts, AI analysis, and their PropertyOps subscription.
 
 ### Tenant
+Tenants can view their active home and lease, owner contact information, unpaid rent, payment history, PDF receipts, and maintenance requests. Tenants can pay rent through Stripe Checkout.
 
-Tenants can:
+## Rent and Payment Model
 
-- Sign in to an owner-provisioned account
-- View their active lease and unit
-- View rent obligations
-- Start Stripe Checkout
-- Review verified payment history
-- Submit maintenance requests
-- Track maintenance status
-- Manage profile information
-
-Tenants cannot access owner-only operations or another tenant's resources.
-
-## Maintenance Workflow
+Lease creation generates monthly rent obligations using a calendar-month anchor. Paid rent is retained in history; ending or shortening a lease only cancels applicable future pending obligations.
 
 ```text
-OPEN
+Lease
   |
   v
-ASSIGNED
+Monthly Rent Obligations
   |
-  v
-IN_PROGRESS
+  +--> Stripe Checkout --> verified webhook --> PAID
   |
-  v
-RESOLVED
+  +--> Owner records cash -------------------> PAID
 ```
 
-Invalid transitions are rejected by backend business logic.
+Browser redirects are never treated as proof of payment.
 
-## Stripe Payment Flow
+## Subscription Billing
 
-PropertyOps does **not** trust the browser redirect as proof of payment.
+Default plans:
+
+| Plan | Monthly | Yearly | Property limit |
+| --- | ---: | ---: | ---: |
+| FREE | $0 | $0 | 2 |
+| STANDARD | $9 | $90 | 10 |
+| PRO | $19 | $190 | Unlimited |
+
+Paid plan limits are granted only when Stripe-backed subscription status is `ACTIVE`. `INCOMPLETE`, `PAST_DUE`, and `CANCELED` paid subscriptions fall back to the Free-plan property limit without deleting existing properties.
+
+Rent and subscription traffic share one signed Stripe webhook endpoint and are separated with metadata:
 
 ```text
-Tenant selects Pay
-  |
-  v
-Backend creates Payment + Stripe Checkout Session
-  |
-  v
-Payment = PROCESSING
-  |
-  v
-Tenant completes Stripe Checkout
-  |
-  v
-Stripe sends checkout.session.completed
-  |
-  v
-FastAPI verifies Stripe signature
-  |
-  v
-Event idempotency + amount/currency/session validation
-  |
-  v
-Payment = PAID
-Rent obligation = PAID
+flow=RENT
+flow=SUBSCRIPTION
 ```
 
-Webhook event IDs are persisted so duplicate Stripe deliveries are safely ignored.
+## Financial Overview
+
+Owners can review rent collected, property and general expenses, net cash flow, outstanding rent, and income-vs-expense trends using monthly, 30-day, yearly, or custom date ranges.
 
 ## AI Property Intelligence
 
-The AI feature is integrated into the operational workflow rather than implemented as a standalone chatbot.
+The AI feature is integrated into property operations rather than implemented as a standalone chatbot.
 
-PropertyOps sends bounded maintenance and expense context for an authorized property or unit. Gemini returns structured output containing:
+PropertyOps sends bounded maintenance and expense context for an authorized property or unit. Gemini returns structured findings with qualification, explanation, recommendation, and evidence references.
 
-- Finding
-- Qualification: `LOW`, `MEDIUM`, or `HIGH`
-- Optional recommendation
-- Explanation
-- Evidence references
+Evidence IDs are validated against the exact records supplied before persistence.
 
-Every evidence ID returned by the model is validated against the exact records supplied to it before persistence.
-
-Safeguards include:
-
-- 12-month maximum lookback
-- Record-count limits
-- Request rate limiting
-- Provider timeout
-- Structured schema validation
-- Evidence type restrictions
-- Evidence ID validation
-- Property/unit scope validation
-- Failed-job handling
-- Disabled automatic function calling
-- Output token limits
-
-The live-model evaluation suite is available under `backend/evals`.
-
-## Project Structure
-
-```text
-PropertyOps-DH/
-|
-+-- .github/
-|   +-- workflows/
-|       +-- ci.yml
-|
-+-- backend/
-|   +-- alembic/
-|   +-- app/
-|   |   +-- api/
-|   |   +-- core/
-|   |   +-- db/
-|   |   +-- models/
-|   |   +-- schemas/
-|   |   +-- services/
-|   +-- evals/
-|   +-- tests/
-|   +-- .env.example
-|   +-- alembic.ini
-|   +-- requirements.txt
-|
-+-- frontend/
-|   +-- src/
-|   +-- package.json
-|   +-- package-lock.json
-|
-+-- docs/
-|   +-- ARCHITECTURE.md
-|   +-- DEPLOYMENT.md
-|
-+-- README.md
-+-- vercel.json
-```
+Safeguards include context limits, rate limiting, provider timeout, structured output validation, evidence validation, property/unit scope checks, and failed-job handling.
 
 ## Local Development
-
-### Prerequisites
-
-- Python 3.13+
-- Node.js 24+
-- PostgreSQL
-- Git
 
 ### Backend
 
@@ -303,38 +122,9 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 Copy-Item .env.example .env
-```
 
-Configure `backend/.env` with local database credentials, a JWT secret, Stripe test credentials, and a Gemini API key.
-
-Run migrations:
-
-```powershell
 alembic upgrade head
-```
-
-Start the API:
-
-```powershell
 uvicorn app.main:app --reload
-```
-
-Backend:
-
-```text
-http://127.0.0.1:8000
-```
-
-Swagger:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-Health:
-
-```text
-http://127.0.0.1:8000/health
 ```
 
 ### Frontend
@@ -342,33 +132,20 @@ http://127.0.0.1:8000/health
 ```powershell
 cd ..\frontend
 npm ci
+npm run dev
 ```
 
-Create `frontend/.env`:
+Frontend `.env`:
 
 ```env
 VITE_API_URL=http://127.0.0.1:8000/api
 ```
 
-Start the frontend:
-
-```powershell
-npm run dev
-```
-
-Frontend:
-
-```text
-http://localhost:5173
-```
-
 ## Environment Variables
 
-Backend example:
-
 ```env
-DATABASE_URL=postgresql+psycopg://username:password@localhost:5432/propertyops_db
-TEST_DATABASE_URL=postgresql+psycopg://username:password@localhost:5432/propertyops_test_db
+DATABASE_URL=postgresql+psycopg://...
+TEST_DATABASE_URL=
 
 FRONTEND_ORIGIN=http://localhost:5173
 FRONTEND_URL=http://localhost:5173
@@ -389,63 +166,42 @@ AI_LOOKBACK_DAYS=365
 AI_TIMEOUT_SECONDS=30
 ```
 
-Never commit real secrets. `.env` files are Git-ignored.
+Never commit real secrets.
 
 ## Testing
 
-### Backend
-
-From `backend/`:
+Backend:
 
 ```powershell
+cd backend
+python -m compileall app
+alembic upgrade head
 python -m pytest tests -q
 ```
 
-Current regression suite:
-
-```text
-53 passed
-```
-
-### AI Evaluation
-
-Run the live-model evaluation suite from `backend/`:
+Frontend:
 
 ```powershell
-python -m evals.run_ai_evals
-```
-
-Live Gemini calls are intentionally excluded from CI because CI should not depend on external model availability, secrets, token cost, or nondeterministic provider behavior.
-
-### Frontend
-
-From `frontend/`:
-
-```powershell
+cd frontend
+npm ci
 npm run lint
 npm run build
 ```
 
-## Continuous Integration
+Live Gemini evaluation is intentionally separate from deterministic CI:
 
-GitHub Actions validates both application halves.
+```powershell
+cd backend
+python -m evals.run_ai_evals
+```
 
-Backend CI:
+## CI
 
-1. Starts PostgreSQL 17
-2. Installs Python dependencies
-3. Compiles backend source
-4. Runs Alembic migrations
-5. Runs backend tests
+Backend CI uses PostgreSQL 17 and Python 3.13, compiles backend source, runs Alembic migrations, and executes the full Pytest suite.
 
-Frontend CI:
+Frontend CI uses Node.js 24, runs `npm ci`, Oxlint, and the Vite production build.
 
-1. Installs Node.js 24
-2. Runs `npm ci`
-3. Runs Oxlint
-4. Builds the Vite production bundle
-
-Workflow: [.github/workflows/ci.yml](.github/workflows/ci.yml)
+Workflow: `.github/workflows/ci.yml`
 
 ## Production
 
@@ -454,50 +210,30 @@ Workflow: [.github/workflows/ci.yml](.github/workflows/ci.yml)
 | Frontend | Vercel |
 | Backend | Render |
 | Database | Neon PostgreSQL |
-| Payments | Stripe test-mode Checkout + signed webhook |
+| Payments | Stripe test mode |
 | AI | Gemini |
 | CI | GitHub Actions |
 
-### Production URLs
+Production URLs:
 
-- **Application:** https://propertyops-sz.vercel.app
-- **Backend health:** https://propertyops-api-1du2.onrender.com/health
-- **Swagger:** https://propertyops-api-1du2.onrender.com/docs
+- https://propertyops-sz.vercel.app
+- https://propertyops-api-1du2.onrender.com
+- https://propertyops-api-1du2.onrender.com/health
+- https://propertyops-api-1du2.onrender.com/docs
 
-Full deployment and operational guidance is documented in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+See `docs/ARCHITECTURE.md` and `docs/DEPLOYMENT.md`.
 
 ## Security and Reliability
 
-PropertyOps includes:
-
-- Password hashing
-- JWT authentication
-- Role-based authorization
-- Cross-owner protection
-- Cross-tenant protection
-- Server-side workflow validation
-- Signed Stripe webhook verification
-- Stripe event idempotency
-- Payment amount, currency, and session validation
-- Secret management through environment variables
-- AI schema validation
-- AI evidence validation
-- AI context limits
-- AI rate limiting
-- Provider timeout handling
-- Database migrations
-- Automated regression testing
-- CI checks before release
+PropertyOps includes password hashing, JWT authentication, role-based authorization, cross-owner and cross-tenant protection, account deactivation without destructive deletion, backend property-limit enforcement, signed Stripe webhooks, event idempotency, payment validation, subscription state verification, AI evidence validation, bounded AI context, migrations, regression tests, and CI.
 
 ## Architectural Tradeoffs
 
-PropertyOps is intentionally a modular monolith. It avoids premature microservices while preserving clear separation between API routes, models, schemas, services, and external integrations.
+PropertyOps intentionally uses a modular monolith rather than premature microservices.
 
-AI processing currently uses FastAPI `BackgroundTasks`. This keeps deployment simple and is appropriate for the project scope, but it is not a durable queue. A larger production system would move AI execution to a persistent queue and dedicated worker.
+AI jobs use FastAPI `BackgroundTasks`, which is appropriate for this project scope but is not a durable job queue.
 
-Stripe remains in test mode because the project demonstrates real hosted payment integration without processing real customer funds.
-
-More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Stripe remains in test mode so the system demonstrates real hosted payments and recurring billing without processing real customer funds.
 
 ## Author
 
