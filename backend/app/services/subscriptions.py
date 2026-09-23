@@ -209,6 +209,34 @@ def get_owner_subscription(
     )
 
 
+def effective_plan_for_limits(
+    db: Session,
+    subscription: OwnerSubscription,
+    stored_plan: SubscriptionPlan,
+) -> SubscriptionPlan:
+    if (
+        subscription.status
+        == SubscriptionStatus.ACTIVE
+    ):
+        return stored_plan
+
+    if (
+        subscription.status
+        == SubscriptionStatus.FREE
+        and stored_plan.code
+        == "FREE"
+    ):
+        return stored_plan
+
+    # A paid plan is not granted until Stripe confirms
+    # it ACTIVE. CANCELED, PAST_DUE, or INCOMPLETE
+    # owners fall back to the FREE property limit.
+    return get_plan_by_code(
+        db,
+        "FREE",
+    )
+
+
 def property_count_for_owner(
     db: Session,
     owner_id: int,
@@ -233,11 +261,17 @@ def enforce_property_limit(
     owner_id: int,
 ) -> None:
     (
-        _,
-        plan,
+        subscription,
+        stored_plan,
     ) = get_owner_subscription(
         db,
         owner_id,
+    )
+
+    plan = effective_plan_for_limits(
+        db,
+        subscription,
+        stored_plan,
     )
 
     if (

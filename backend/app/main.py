@@ -47,6 +47,7 @@ from app.api.routes import (
     tenant_homes,
     plan_management,
     subscriptions,
+    subscription_billing,
 )
 
 
@@ -152,6 +153,12 @@ app.include_router(
     subscriptions.router,
     prefix="/api",
     tags=["Subscriptions"],
+)
+
+app.include_router(
+    subscription_billing.router,
+    prefix="/api",
+    tags=["Subscription Billing"],
 )
 
 app.include_router(

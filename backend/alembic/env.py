@@ -39,6 +39,9 @@ from app.models.subscription_plan import (
 from app.models.owner_subscription import (
     OwnerSubscription,
 )
+from app.models.subscription_payment import (
+    SubscriptionPayment,
+)
 
 from app.models.ai_analysis_job import (
     AIAnalysisJob,

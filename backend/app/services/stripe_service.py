@@ -47,9 +47,11 @@ def create_checkout_session(
     client = get_stripe_client()
 
     metadata = {
-        "payment_id": str(
-            payment.id
-        ),
+            "flow": "RENT",
+
+            "payment_id": str(
+               payment.id
+            ),
         "rent_obligation_id": str(
             obligation.id
         ),

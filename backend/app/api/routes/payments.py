@@ -68,6 +68,9 @@ from app.services.stripe_service import (
     create_checkout_session,
     get_stripe_client,
 )
+from app.services.subscription_billing import (
+    handle_subscription_event,
+)
 
 
 router = APIRouter()
@@ -638,6 +641,7 @@ def list_owner_payments(
         ) in rows
     ]
 
+
 @router.get(
     "/owner/payments/{payment_id}",
 
@@ -940,6 +944,35 @@ async def stripe_webhook(
             event["data"]["object"]
             .to_dict()
         )
+
+        subscription_handled = (
+            handle_subscription_event(
+                db=db,
+                event_type=event_type,
+                event_object=event_object,
+            )
+        )
+
+        if subscription_handled:
+            db.add(
+                StripeEvent(
+                    stripe_event_id=event_id,
+                    event_type=event_type,
+                )
+            )
+
+            db.commit()
+
+            logger.info(
+                "Processed subscription "
+                "Stripe event: %s %s",
+                event_id,
+                event_type,
+            )
+
+            return {
+                "received": True,
+            }
 
         if (
             event_type

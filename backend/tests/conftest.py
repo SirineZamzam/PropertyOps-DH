@@ -51,6 +51,10 @@ from app.models.stripe_event import (
     StripeEvent,
 )
 
+from app.models.subscription_payment import (
+    SubscriptionPayment,
+)
+
 from app.models.subscription_plan import (
     SubscriptionPlan,
 )
@@ -175,6 +179,12 @@ def db():
         session.execute(
             delete(
                 Property
+            )
+        )
+
+        session.execute(
+            delete(
+                SubscriptionPayment
             )
         )
 

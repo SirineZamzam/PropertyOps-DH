@@ -2,9 +2,11 @@ import enum
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     Enum,
     ForeignKey,
+    String,
     UniqueConstraint,
     func,
 )
@@ -16,15 +18,17 @@ from sqlalchemy.orm import (
 from app.db.base import Base
 
 
-class SubscriptionStatus(
-    str,
-    enum.Enum,
-):
+class SubscriptionStatus(str, enum.Enum):
     FREE = "FREE"
     ACTIVE = "ACTIVE"
     INCOMPLETE = "INCOMPLETE"
     PAST_DUE = "PAST_DUE"
     CANCELED = "CANCELED"
+
+
+class BillingInterval(str, enum.Enum):
+    MONTHLY = "MONTHLY"
+    YEARLY = "YEARLY"
 
 
 class OwnerSubscription(Base):
@@ -33,9 +37,7 @@ class OwnerSubscription(Base):
     __table_args__ = (
         UniqueConstraint(
             "owner_id",
-            name=(
-                "uq_owner_subscriptions_owner_id"
-            ),
+            name="uq_owner_subscriptions_owner_id",
         ),
     )
 
@@ -71,17 +73,56 @@ class OwnerSubscription(Base):
         nullable=False,
     )
 
-    created_at: Mapped[
-        datetime
+    billing_interval: Mapped[
+        BillingInterval | None
     ] = mapped_column(
+        Enum(
+            BillingInterval,
+            name="billing_interval",
+        ),
+        nullable=True,
+    )
+
+    stripe_customer_id: Mapped[
+        str | None
+    ] = mapped_column(
+        String(255),
+        nullable=True,
+        unique=True,
+        index=True,
+    )
+
+    stripe_subscription_id: Mapped[
+        str | None
+    ] = mapped_column(
+        String(255),
+        nullable=True,
+        unique=True,
+        index=True,
+    )
+
+    current_period_end: Mapped[
+        datetime | None
+    ] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    cancel_at_period_end: Mapped[
+        bool
+    ] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
 
-    updated_at: Mapped[
-        datetime
-    ] = mapped_column(
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
