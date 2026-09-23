@@ -35,6 +35,11 @@ from app.models.building import Building
 from app.models.expense import Expense
 from app.models.lease import Lease
 from app.models.maintenance import Maintenance
+
+from app.models.owner_subscription import (
+    OwnerSubscription,
+)
+
 from app.models.payment import Payment
 from app.models.property import Property
 
@@ -44,6 +49,10 @@ from app.models.rent_obligation import (
 
 from app.models.stripe_event import (
     StripeEvent,
+)
+
+from app.models.subscription_plan import (
+    SubscriptionPlan,
 )
 
 from app.models.unit import Unit
@@ -166,6 +175,18 @@ def db():
         session.execute(
             delete(
                 Property
+            )
+        )
+
+        session.execute(
+            delete(
+                OwnerSubscription
+            )
+        )
+
+        session.execute(
+            delete(
+                SubscriptionPlan
             )
         )
 

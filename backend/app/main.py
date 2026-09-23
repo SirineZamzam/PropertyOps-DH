@@ -45,6 +45,8 @@ from app.api.routes import (
     payments,
     resource_management,
     tenant_homes,
+    plan_management,
+    subscriptions,
 )
 
 
@@ -144,6 +146,18 @@ app.include_router(
     admin.router,
     prefix="/api",
     tags=["Admin"],
+)
+
+app.include_router(
+    subscriptions.router,
+    prefix="/api",
+    tags=["Subscriptions"],
+)
+
+app.include_router(
+    plan_management.router,
+    prefix="/api",
+    tags=["Plan Management"],
 )
 
 app.include_router(

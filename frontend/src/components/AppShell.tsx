@@ -15,6 +15,7 @@ import {
   Users,
   Wrench,
   X,
+  BadgeDollarSign,
 } from "lucide-react";
 
 import {
@@ -103,6 +104,14 @@ export function AppShell() {
         "/app/admin/owners",
       icon:
         ShieldCheck,
+    },
+    {
+      label:
+        "Plans",
+      to:
+        "/app/admin/plans",
+      icon:
+        BadgeDollarSign,
     },
     {
       label:

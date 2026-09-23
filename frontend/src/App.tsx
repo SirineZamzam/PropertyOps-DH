@@ -1,28 +1,14 @@
-import {
-  Navigate,
-  Route,
-  Routes,
-} from "react-router";
+import { Navigate, Route, Routes } from "react-router";
 
-import {
-  AppShell,
-} from "./components/AppShell";
+import { AppShell } from "./components/AppShell";
 
-import {
-  ProtectedRoute,
-} from "./components/ProtectedRoute";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
-import {
-  RoleRoute,
-} from "./components/RoleRoute";
+import { RoleRoute } from "./components/RoleRoute";
 
-import {
-  useAuth,
-} from "./contexts/AuthContext";
+import { useAuth } from "./contexts/AuthContext";
 
-import {
-  TenantHomeProvider,
-} from "./contexts/TenantHomeContext";
+import { TenantHomeProvider } from "./contexts/TenantHomeContext";
 
 import AuthPage from "./pages/AuthPage";
 import LandingPage from "./pages/LandingPage";
@@ -39,70 +25,33 @@ import MaintenancePage from "./pages/MaintenancePage";
 import ExpensesPage from "./pages/ExpensesPage";
 import RentPage from "./pages/RentPage";
 import TenantHomePage from "./pages/TenantHomePage";
+import AdminPlansPage from "./pages/AdminPlansPage";
 import SettingsPage from "./pages/SettingsPage";
 
-
 function WorkspaceRedirect() {
-  const {
-    user,
-  } = useAuth();
+  const { user } = useAuth();
 
   if (!user) {
-    return (
-      <Navigate
-        to="/auth?mode=login"
-        replace
-      />
-    );
+    return <Navigate to="/auth?mode=login" replace />;
   }
 
-  if (
-    user.role === "ADMIN"
-  ) {
-    return (
-      <Navigate
-        to="/app/admin/overview"
-        replace
-      />
-    );
+  if (user.role === "ADMIN") {
+    return <Navigate to="/app/admin/overview" replace />;
   }
 
-  if (
-    user.role === "OWNER"
-  ) {
-    return (
-      <Navigate
-        to="/app/overview"
-        replace
-      />
-    );
+  if (user.role === "OWNER") {
+    return <Navigate to="/app/overview" replace />;
   }
 
-  return (
-    <Navigate
-      to="/app/home"
-      replace
-    />
-  );
+  return <Navigate to="/app/home" replace />;
 }
-
 
 export default function App() {
   return (
     <Routes>
-      <Route
-        path="/"
-        element={
-          <LandingPage />
-        }
-      />
+      <Route path="/" element={<LandingPage />} />
 
-      <Route
-        path="/auth"
-        element={
-          <AuthPage />
-        }
-      />
+      <Route path="/auth" element={<AuthPage />} />
 
       <Route
         path="/app"
@@ -114,12 +63,7 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route
-          index
-          element={
-            <WorkspaceRedirect />
-          }
-        />
+        <Route index element={<WorkspaceRedirect />} />
 
         <Route
           path="admin/overview"
@@ -135,6 +79,15 @@ export default function App() {
           element={
             <RoleRoute role="ADMIN">
               <AdminOwnersPage />
+            </RoleRoute>
+          }
+        />
+
+        <Route
+          path="admin/plans"
+          element={
+            <RoleRoute role="ADMIN">
+              <AdminPlansPage />
             </RoleRoute>
           }
         />
@@ -175,12 +128,7 @@ export default function App() {
           }
         />
 
-        <Route
-          path="maintenance"
-          element={
-            <MaintenancePage />
-          }
-        />
+        <Route path="maintenance" element={<MaintenancePage />} />
 
         <Route
           path="expenses"
@@ -191,12 +139,7 @@ export default function App() {
           }
         />
 
-        <Route
-          path="rent"
-          element={
-            <RentPage />
-          }
-        />
+        <Route path="rent" element={<RentPage />} />
 
         <Route
           path="home"
@@ -207,20 +150,10 @@ export default function App() {
           }
         />
 
-        <Route
-          path="settings"
-          element={
-            <SettingsPage />
-          }
-        />
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
 
-      <Route
-        path="*"
-        element={
-          <NotFoundPage />
-        }
-      />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }
